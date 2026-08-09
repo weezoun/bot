@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ symbol }} Bot Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1a2332;
+      --muted: #5c6b7a;
+      --panel: #fffdf8;
+      --line: #d9d0c0;
+      --teal: #0d6e6e;
+      --teal-dim: #0a5555;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --green: #15803d;
+      --shadow: 0 10px 30px rgba(26, 35, 50, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #e7f2f0 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, #f7e9d8 0%, transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,253,248,0.85);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 0.15rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .badge {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .badge.on { color: var(--green); border-color: #86efac; background: #f0fdf4; }
+    .badge.off { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    button:active { transform: scale(0.98); }
+    .btn-start { background: var(--teal); color: #fff; }
+    .btn-start:hover { background: var(--teal-dim); }
+    .btn-stop { background: #fee2e2; color: var(--red); }
+    main {
+      padding: 1.25rem 1.75rem 2.5rem;
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(12, 1fr);
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1rem 1.1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+    .metric {
+      padding: 0.65rem 0.7rem;
+      border-radius: 12px;
+      background: #f7f3ea;
+      border: 1px solid transparent;
+    }
+    .metric .lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric .val {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.05rem;
+      margin-top: 0.2rem;
+      font-weight: 500;
+    }
+    .reason {
+      font-size: 0.95rem;
+      line-height: 1.45;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      background: #ecf6f5;
+      border-left: 4px solid var(--teal);
+      min-height: 3.2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.4rem;
+      border-bottom: 1px solid var(--line);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .mono { font-family: "JetBrains Mono", monospace; }
+    .log-box {
+      max-height: 320px;
+      overflow: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: #334155;
+      background: #f7f3ea;
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+    }
+    .log-box div { border-bottom: 1px dashed #e5ddd0; padding: 0.2rem 0; }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .amber { color: var(--amber); }
+    .result-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .result-tp { color: var(--green); background: #f0fdf4; }
+    .result-sl { color: var(--red); background: #fef2f2; }
+    .result-flip { color: var(--amber); background: #fffbeb; }
+    .reason-cell {
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 900px) {
+      .span-4, .span-6, .span-8, .span-12 { grid-column: span 12; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>{{ symbol }} Dual-Mode Bot</h1>
+      <p>ADX + DI + RSI · with-trend &amp; counter-scalp · live M15</p>
+    </div>
+    <div class="controls">
+      <span id="connBadge" class="badge off">MT5 —</span>
+      <span id="runBadge" class="badge off">BOT —</span>
+      <button class="btn-start" onclick="startBot()">Start</button>
+      <button class="btn-stop" onclick="stopBot()">Stop</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel span-4">
+      <h2>Account</h2>
+      <div class="metrics">
+        <div class="metric"><div class="lbl">Equity</div><div class="val" id="equity">—</div></div>
+        <div class="metric"><div class="lbl">Balance</div><div class="val" id="balance">—</div></div>
+        <div class="metric"><div class="lbl">Floating</div><div class="val" id="profit">—</div></div>
+        <div class="metric"><div class="lbl">Wins</div><div class="val" id="wins">—</div></div>
+        <div class="metric"><div class="lbl">Losses</div><div class="val" id="losses">—</div></div>
+        <div class="metric"><div class="lbl">Net P/L</div><div class="val" id="net">—</div></div>
+        <div class="metric"><div class="lbl">Buy trades</div><div class="val" id="buyTrades">—</div></div>
+        <div class="metric"><div class="lbl">Sell trades</div><div class="val" id="sellTrades">—</div></div>
+        <div class="metric"><div class="lbl">Win rate</div><div class="val" id="winRate">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel span-8">
+      <h2>Last decision</h2>
+      <div class="reason" id="reason">Waiting for first tick…</div>
+      <div class="metrics" style="margin-top:0.9rem">
+        <div class="metric"><div class="lbl">Mode</div><div class="val" id="mode">—</div></div>
+        <div class="metric"><div class="lbl">Action</div><div class="val" id="action">—</div></div>
+        <div class="metric"><div class="lbl">Attempt</div><div class="val" id="attempt">—</div></div>
+        <div class="metric"><div class="lbl">Updated</div><div class="val" id="updated">—</div></div>
+        <div class="metric"><div class="lbl">Live Bid</div><div class="val" id="bid">—</div></div>
+        <div class="metric"><div class="lbl">Live Ask</div><div class="val" id="ask">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Live indicators <span style="font-weight:500;text-transform:none;letter-spacing:0">(forming M15 · decisions use these same values)</span></h2>
+      <div class="metrics">
+        <div class="metric"><div class="lbl">Live Mid</div><div class="val" id="liveMid">—</div></div>
+        <div class="metric"><div class="lbl">Spread</div><div class="val" id="spread">—</div></div>
+        <div class="metric"><div class="lbl">Tick time</div><div class="val" id="tickTime">—</div></div>
+        <div class="metric"><div class="lbl">Forming close</div><div class="val" id="close">—</div></div>
+        <div class="metric"><div class="lbl">Signal bar close</div><div class="val" id="sigClose">—</div></div>
+        <div class="metric"><div class="lbl">50 EMA</div><div class="val" id="ema50">—</div></div>
+        <div class="metric"><div class="lbl">200 EMA</div><div class="val" id="ema200">—</div></div>
+        <div class="metric"><div class="lbl">Trend</div><div class="val" id="trend">—</div></div>
+        <div class="metric"><div class="lbl">ADX</div><div class="val" id="adx">—</div></div>
+        <div class="metric"><div class="lbl">+DI</div><div class="val" id="dip">—</div></div>
+        <div class="metric"><div class="lbl">-DI</div><div class="val" id="dim">—</div></div>
+        <div class="metric"><div class="lbl">RSI</div><div class="val" id="rsi">—</div></div>
+        <div class="metric"><div class="lbl">ATR</div><div class="val" id="atr">—</div></div>
+        <div class="metric"><div class="lbl">ATR mean</div><div class="val" id="atrMean">—</div></div>
+        <div class="metric"><div class="lbl">ATR weak</div><div class="val" id="atrWeak">—</div></div>
+        <div class="metric"><div class="lbl">ATR strong</div><div class="val" id="atrStrong">—</div></div>
+        <div class="metric"><div class="lbl">Condition</div><div class="val" id="condition">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel span-6">
+      <h2>Open positions</h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket</th><th>Side</th><th>Vol</th><th>Open</th><th>SL</th><th>TP</th><th>P/L</th><th>Mode</th>
+            </tr>
+          </thead>
+          <tbody id="posBody">
+            <tr><td colspan="8">None</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel span-6">
+      <h2>Decision log</h2>
+      <div class="log-box" id="logs"></div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Trade history <span style="font-weight:500;text-transform:none;letter-spacing:0">(closed positions — why opened, why closed)</span></h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Closed</th><th>Opened</th><th>Side</th><th>Mode</th><th>Open</th><th>SL</th><th>TP</th><th>P/L</th><th>Result</th><th>Why it opened</th>
+            </tr>
+          </thead>
+          <tbody id="histBody">
+            <tr><td colspan="10">No closed trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function n(v, d=2) {
+      if (v === undefined || v === null || Number.isNaN(v)) return "—";
+      return Number(v).toFixed(d);
+    }
+    function setText(id, val, cls) {
+      const el = document.getElementById(id);
+      el.textContent = val;
+      el.className = "val" + (cls ? " " + cls : "");
+    }
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+    async function refresh() {
+      try {
+        const res = await fetch("/api/status?_=" + Date.now(), { cache: "no-store" });
+        const s = await res.json();
+        const conn = document.getElementById("connBadge");
+        const run = document.getElementById("runBadge");
+        conn.textContent = s.connected ? "MT5 connected" : "MT5 offline";
+        conn.className = "badge " + (s.connected ? "on" : "off");
+        run.textContent = s.running ? "BOT running" : "BOT stopped";
+        run.className = "badge " + (s.running ? "on" : "off");
+
+        const a = s.account || {};
+        setText("equity", n(a.equity));
+        setText("balance", n(a.balance));
+        setText("profit", n(a.profit), a.profit >= 0 ? "up" : "down");
+        const st = s.stats || {};
+        setText("wins", st.wins ?? "—");
+        setText("losses", st.losses ?? "—");
+        setText("net", n(st.profit), (st.profit || 0) >= 0 ? "up" : "down");
+        setText("buyTrades", st.buy_trades ?? "—");
+        setText("sellTrades", st.sell_trades ?? "—");
+        setText("winRate", st.win_rate !== undefined ? n(st.win_rate, 1) + "%" : "—");
+
+        document.getElementById("reason").textContent = s.last_reason || "—";
+        setText("mode", s.mode || "—", "amber");
+        setText("action", (s.last_signal && s.last_signal.action) || "—");
+        setText("attempt", s.attempt ?? "—");
+        setText("updated", s.updated_at || "—");
+
+        const live = s.live || {};
+        setText("bid", n(live.bid));
+        setText("ask", n(live.ask));
+        setText("liveMid", n(live.mid));
+        setText("spread", n(live.spread));
+        setText("tickTime", live.time || "—");
+
+        const sn = s.snapshot || {};
+        setText("close", n(sn.close));
+        setText("sigClose", n(sn.signal_close));
+        setText("ema50", n(sn.ema50));
+        setText("ema200", n(sn.ema200));
+        const trendCls = sn.trend === "TRENDING_UP" ? "up" : sn.trend === "TRENDING_DOWN" ? "down" : "";
+        setText("trend", sn.trend || "—", trendCls);
+        setText("adx", n(sn.adx));
+        setText("dip", n(sn.di_plus), "up");
+        setText("dim", n(sn.di_minus), "down");
+        setText("rsi", n(sn.rsi));
+        setText("atr", n(sn.atr));
+        setText("atrMean", n(sn.atr_mean));
+        setText("atrWeak", sn.atr_weak === true ? "YES" : sn.atr_weak === false ? "NO" : "—");
+        setText("atrStrong", sn.atr_strong === true ? "YES" : sn.atr_strong === false ? "NO" : "—");
+        setText("condition", sn.condition || "—");
+
+        const body = document.getElementById("posBody");
+        const positions = s.positions || [];
+        if (!positions.length) {
+          body.innerHTML = '<tr><td colspan="8">None</td></tr>';
+        } else {
+          body.innerHTML = positions.map(p => `
+            <tr>
+              <td class="mono">${p.ticket}</td>
+              <td class="${p.type === 'BUY' ? 'up' : 'down'}">${p.type}</td>
+              <td class="mono">${p.volume}</td>
+              <td class="mono">${n(p.price_open)}</td>
+              <td class="mono">${n(p.sl)}</td>
+              <td class="mono">${n(p.tp)}</td>
+              <td class="mono ${p.profit >= 0 ? 'up' : 'down'}">${n(p.profit)}</td>
+              <td>${p.mode || ''}</td>
+            </tr>`).join("");
+        }
+
+        const logs = document.getElementById("logs");
+        logs.innerHTML = (s.logs || []).map(l => `<div>${esc(l)}</div>`).join("") || "<div>No logs yet</div>";
+
+        const histBody = document.getElementById("histBody");
+        const hist = s.trade_history || [];
+        if (!hist.length) {
+          histBody.innerHTML = '<tr><td colspan="10">No closed trades yet</td></tr>';
+        } else {
+          const resultCls = { TP: "result-tp", SL: "result-sl", FLIP: "result-flip" };
+          histBody.innerHTML = hist.map(h => `
+            <tr>
+              <td class="mono">${h.closed_at || "—"}</td>
+              <td class="mono">${h.opened_at || "—"}</td>
+              <td class="${h.side === 'BUY' ? 'up' : 'down'}">${h.side || ""}</td>
+              <td>${h.mode || ""}</td>
+              <td class="mono">${n(h.price_open)}</td>
+              <td class="mono">${n(h.sl)}</td>
+              <td class="mono">${n(h.tp)}</td>
+              <td class="mono ${(h.profit || 0) >= 0 ? 'up' : 'down'}">${n(h.profit)}</td>
+              <td><span class="result-tag ${resultCls[h.close_reason] || ''}">${h.close_reason || '—'}</span></td>
+              <td class="reason-cell" title="${esc(h.open_reason)}">${esc(h.open_reason) || '—'}</td>
+            </tr>`).join("");
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    async function startBot() {
+      await fetch("/api/start", { method: "POST", cache: "no-store" });
+      refresh();
+    }
+    async function stopBot() {
+      await fetch("/api/stop", { method: "POST", cache: "no-store" });
+      refresh();
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

@@ -25,6 +25,7 @@ class Snapshot:
     prev_di_minus: float
     atr: float
     atr_mean: float
+    prev_atr: float
     rsi: float
     prev_rsi: float
     trend: str
@@ -108,6 +109,7 @@ def build_snapshot(data: pd.DataFrame, bar_offset: int = -2) -> Optional[Snapsho
     prev_close = float(data['close'].iloc[i - 1])
     atr = float(data['ATR'].iloc[i])
     atr_mean = float(data['ATR'].iloc[-50:].mean())
+    prev_atr = float(data['ATR'].iloc[i - 1])
     adx = float(data['ADX'].iloc[i])
     di_plus = float(data['+DI_14'].iloc[i])
     di_minus = float(data['-DI_14'].iloc[i])
@@ -131,7 +133,12 @@ def build_snapshot(data: pd.DataFrame, bar_offset: int = -2) -> Optional[Snapsho
         condition = 'NORMAL'
 
     atr_weak = atr < atr_mean
-    atr_strong = atr >= atr_mean  # momentum expansion (dumps/rallies)
+    # Momentum expansion (dumps/rallies). Two ways in, whichever fires first:
+    # (1) ATR already above its own 50-bar mean (absolute level), or
+    # (2) ATR expanding candle-over-candle (rolling) — catches a move that's
+    # genuinely picking up energy right now but hasn't caught up to its
+    # slow-moving average yet, instead of waiting on a lagging static bar.
+    atr_strong = (atr >= atr_mean) or (atr > prev_atr)
 
     bar_time = int(data['time'].iloc[i])
     return Snapshot(
@@ -147,6 +154,7 @@ def build_snapshot(data: pd.DataFrame, bar_offset: int = -2) -> Optional[Snapsho
         prev_di_minus=prev_di_minus,
         atr=atr,
         atr_mean=atr_mean,
+        prev_atr=prev_atr,
         rsi=rsi,
         prev_rsi=prev_rsi,
         trend=trend,
@@ -261,7 +269,7 @@ def _skip_scalp_sell_reason(snap: Snapshot) -> str:
     if not (snap.rsi < cfg.RSI_SCALP_SELL_MAX):
         parts.append(f"RSI({snap.rsi:.1f}) not < {cfg.RSI_SCALP_SELL_MAX}")
     if not snap.atr_strong:
-        parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f})")
+        parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f})")
     return "; ".join(parts) if parts else "scalp conditions OK"
 
 
@@ -272,7 +280,7 @@ def _skip_scalp_buy_reason(snap: Snapshot) -> str:
     if not (snap.rsi > cfg.RSI_SCALP_BUY_MIN):
         parts.append(f"RSI({snap.rsi:.1f}) not > {cfg.RSI_SCALP_BUY_MIN}")
     if not snap.atr_strong:
-        parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f})")
+        parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f})")
     return "; ".join(parts) if parts else "scalp conditions OK"
 
 

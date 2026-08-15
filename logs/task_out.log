@@ -1,27 +1,14 @@
-[USA500] 00:44:32 | Bot loop started
-[USA500] 00:44:32 | Bot marked RUNNING
-[USA100] 00:44:32 | Bot loop started
-[USA100] 00:44:32 | Bot marked RUNNING
-[USA30] 00:44:32 | Bot loop started
-[USA30] 00:44:32 | Bot marked RUNNING
-[XAUUSD] 00:44:32 | Bot loop started
-[XAUUSD] 00:44:32 | Bot marked RUNNING
-[GBPUSD] 00:44:32 | Bot loop started
-[GBPUSD] 00:44:32 | Bot marked RUNNING
-[USDJPY] 00:44:32 | Bot loop started
-[USDJPY] 00:44:32 | Bot marked RUNNING
-[USA30] 00:44:32 | History sync (USA30, last 90d): 75 closed positions seen in MT5 deals, 74 already known, 0 added, 1 unresolved
-[USA30] 00:44:32 | History sync: 1 ticket(s) have deals but no OUT leg yet per MT5 — tickets: [1289742196]
-[USA30] 00:44:32 | Note: 377 closed position(s) in broker history are on other symbol(s) ['GBPUSD', 'USA100', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA30 only)
-[USA500] 00:44:32 | History sync (USA500, last 90d): 81 closed positions seen in MT5 deals, 80 already known, 0 added, 1 unresolved
-[USA500] 00:44:32 | History sync: 1 ticket(s) have deals but no OUT leg yet per MT5 — tickets: [1289748193]
-[USA500] 00:44:32 | Note: 371 closed position(s) in broker history are on other symbol(s) ['GBPUSD', 'USA100', 'USA30', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA500 only)
-[USA100] 00:44:32 | History sync (USA100, last 90d): 76 closed positions seen in MT5 deals, 75 already known, 0 added, 1 unresolved
-[USA100] 00:44:32 | History sync: 1 ticket(s) have deals but no OUT leg yet per MT5 — tickets: [1289743320]
-[USA100] 00:44:32 | Note: 376 closed position(s) in broker history are on other symbol(s) ['GBPUSD', 'USA30', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA100 only)
+[USA500] 04:24:42 | Bot loop started
+[USA500] 04:24:42 | Bot marked RUNNING
+[USA100] 04:24:42 | Bot loop started
+[USA100] 04:24:42 | Bot marked RUNNING
+[USA30] 04:24:42 | Bot loop started
+[USA30] 04:24:42 | Bot marked RUNNING
+[XAUUSD] 04:24:42 | Bot loop started
+[XAUUSD] 04:24:42 | Bot marked RUNNING
+[GBPUSD] 04:24:42 | Bot loop started
+[GBPUSD] 04:24:42 | Bot marked RUNNING
+[USDJPY] 04:24:42 | Bot loop started
+[USDJPY] 04:24:42 | Bot marked RUNNING
  * Serving Flask app 'app'
-[USDJPY] 00:44:32 | History sync (USDJPY, last 90d): 41 closed positions seen in MT5 deals, 41 already known, 0 added, 0 unresolved
-[USDJPY] 00:44:32 | Note: 411 closed position(s) in broker history are on other symbol(s) ['GBPUSD', 'USA100', 'USA30', 'USA500', 'XAUUSD'] — not counted here (this bot instance tracks USDJPY only)
-[XAUUSD] 00:44:32 | History sync (XAUUSD, last 90d): 130 closed positions seen in MT5 deals, 130 already known, 0 added, 0 unresolved
-[XAUUSD] 00:44:32 | Note: 322 closed position(s) in broker history are on other symbol(s) ['GBPUSD', 'USA100', 'USA30', 'USA500', 'USDJPY'] — not counted here (this bot instance tracks XAUUSD only)
  * Debug mode: off

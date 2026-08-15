@@ -308,8 +308,12 @@
     <div class="controls">
       <span id="connBadge" class="badge off">MT5 —</span>
       <span id="runBadge" class="badge off">BOT —</span>
+      {% if not is_guest %}
       <button class="btn-start" onclick="startBot()">Start</button>
       <button class="btn-stop" onclick="stopBot()">Stop</button>
+      {% endif %}
+      {% if current_user %}<span class="badge">{{ current_user }}</span>{% endif %}
+      <button class="btn-stop" onclick="logout()">Logout</button>
     </div>
   </header>
 
@@ -445,6 +449,7 @@
       </div>
     </section>
 
+    {% if not is_guest %}
     <section class="panel span-12">
       <h2>Rule coverage <span class="sub">(computed fresh from live config.py on every page load — a checkmark here is never hand-typed)</span></h2>
       <div style="overflow-x:auto">
@@ -488,6 +493,7 @@
       </div>
       {% endfor %}
     </section>
+    {% endif %}
   </main>
 
   <script>
@@ -514,9 +520,24 @@
       return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     }
 
+    // Session expired (30 min idle, see config.py SESSION_LIFETIME_MINUTES)
+    // -> every /api/* call gets a plain 401 JSON body, not a redirect (a
+    // redirect response to fetch() isn't something the page could act on
+    // sensibly on its own). This wrapper is the ONE place that reacts to
+    // that 401 by sending the browser to /login — every fetch() call below
+    // goes through it instead of calling fetch() directly, 2026-08-16.
+    async function apiFetch(url, opts) {
+      const res = await fetch(url, opts);
+      if (res.status === 401) { window.location.href = "/login"; throw new Error("session expired"); }
+      return res;
+    }
+    function logout() {
+      fetch("/logout", { method: "POST" }).finally(() => { window.location.href = "/login"; });
+    }
+
     async function refresh() {
       try {
-        const res = await fetch("/api/status?_=" + Date.now(), { cache: "no-store" });
+        const res = await apiFetch("/api/status?_=" + Date.now(), { cache: "no-store" });
         const s = await res.json();
         const conn = document.getElementById("connBadge");
         conn.textContent = s.connected ? "MT5 connected" : "MT5 offline";
@@ -714,7 +735,7 @@
     async function loadTradeHistory(page = histPage) {
       try {
         const symQuery = histSymbol ? `&symbol=${encodeURIComponent(histSymbol)}` : "";
-        const res = await fetch(`/api/trades?page=${page}${symQuery}&_=` + Date.now(), { cache: "no-store" });
+        const res = await apiFetch(`/api/trades?page=${page}${symQuery}&_=` + Date.now(), { cache: "no-store" });
         const d = await res.json();
         histPage = d.page || 1;
         histTotalPages = d.total_pages || 1;
@@ -742,11 +763,11 @@
     }
 
     async function startBot() {
-      await fetch("/api/start", { method: "POST", cache: "no-store" });
+      await apiFetch("/api/start", { method: "POST", cache: "no-store" });
       refresh();
     }
     async function stopBot() {
-      await fetch("/api/stop", { method: "POST", cache: "no-store" });
+      await apiFetch("/api/stop", { method: "POST", cache: "no-store" });
       refresh();
     }
     refresh();

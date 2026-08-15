@@ -10,7 +10,48 @@ TIMEFRAME_BARS = 1000
 POLL_SECONDS = 2
 RSI_PERIOD = 14  # shared across symbols — it's a ratio-based indicator, not price-scale dependent
 
-FLASK_HOST = "127.0.0.1"
+# Bound to 0.0.0.0, 2026-08-15, requested directly: exposing the dashboard
+# publicly via a domain (trading.weezoun.com), reverse-proxied through
+# nginx running inside WSL2. WSL2 and the Windows host share the same
+# public IP (198.44.118.152, a bridged network setup on this VPS) but do
+# NOT share loopback (127.0.0.1 in WSL2 is not the same as Windows'), so
+# nginx can only reach Flask via that shared public IP, not localhost.
+# REASON this is still safe: a Windows Firewall rule
+# ("TradingBot-Flask-InternalOnly") allows inbound on 5050 ONLY from
+# 198.44.118.152 itself (i.e. only WSL2/nginx) — the default inbound
+# policy is Block, so genuine external internet traffic to :5050 directly
+# is blocked regardless of this bind change. The ONLY public entry point
+# is nginx on 443.
+FLASK_HOST = "0.0.0.0"
+
+# Dashboard login, 2026-08-16, requested directly: "login window ko
+# behtar karo" (a real login page instead of the browser's native Basic
+# Auth popup) "aur... session ko expire karo" (Basic Auth has NO concept
+# of session expiry at all — once a browser caches the credentials it
+# resends them forever, until the browser itself is closed). Neither
+# ask is possible with nginx's HTTP Basic Auth (the mechanism used
+# 2026-08-15) — both require real server-side sessions, so auth moved
+# from nginx (auth_basic, two .htpasswd files) into Flask itself
+# (signed session cookie, app.py's /login /logout routes + before_request
+# guard). nginx is now a plain reverse proxy again — no auth_basic left
+# in its config, see the trading-bot nginx site.
+# Same two accounts, same passwords, as before (unchanged, just moved):
+# "weezoun" = full access (view + start/stop), "guest" = view-only
+# (before_request blocks /api/start and /api/stop for any non-admin
+# role, and dashboard()'s is_guest flag hides the Rules/Rule-coverage
+# sections server-side, exactly as it did with nginx's X-Auth-User
+# header before — same behavior, different mechanism).
+DASHBOARD_ADMIN_USERNAME = "weezoun"
+DASHBOARD_ADMIN_PASSWORD = "Prison3R!"
+DASHBOARD_GUEST_USERNAME = "guest"
+DASHBOARD_GUEST_PASSWORD = "14august"
+# "Session ko expire karo" — requested directly, chose 30 minutes of
+# INACTIVITY (not a fixed 30 minutes from login): Flask's
+# SESSION_REFRESH_EACH_REQUEST (default True) re-issues the cookie's
+# expiry on every request while the session is valid, so actively using
+# the dashboard keeps it alive indefinitely; only 30 real minutes of no
+# requests at all logs the user out.
+SESSION_LIFETIME_MINUTES = 30
 FLASK_PORT = 5050
 LOG_MAX = 200
 

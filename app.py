@@ -1,7 +1,10 @@
+import hmac
+import secrets
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 import MetaTrader5 as mt5
 
@@ -11,10 +14,93 @@ from bot_runner import SymbolBot, connect_mt5, is_connected
 
 app = Flask(__name__)
 
+# Session-based login, 2026-08-16, requested directly — replaces nginx's
+# HTTP Basic Auth (2026-08-15) so the dashboard can have a real login
+# PAGE and a real EXPIRING session (Basic Auth has neither: no server
+# state, browser just resends cached credentials forever). See
+# config.py's DASHBOARD_* comment for the full REASON.
+#
+# app.secret_key signs the session cookie (integrity, not secrecy — the
+# cookie's CONTENTS are still visible to the client, just tamper-proof).
+# Persisted to a file next to the code rather than regenerated on every
+# restart: a fresh key on every restart would silently log everyone out
+# every time the bot is restarted for a code update, which has been
+# happening often this session — not the intended trade-off (the
+# explicit 30-minute idle timeout is the intended expiry mechanism, not
+# "restarted the bot").
+_SECRET_KEY_PATH = Path(__file__).resolve().parent / ".flask_secret_key"
+if _SECRET_KEY_PATH.exists():
+    app.secret_key = _SECRET_KEY_PATH.read_text().strip()
+else:
+    _generated_key = secrets.token_hex(32)
+    _SECRET_KEY_PATH.write_text(_generated_key)
+    app.secret_key = _generated_key
+
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,   # JS can never read the session cookie (XSS mitigation)
+    SESSION_COOKIE_SECURE=True,     # only sent over HTTPS — the only path real users take (nginx)
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(minutes=cfg.SESSION_LIFETIME_MINUTES),
+)
+
 # One SymbolBot per entry in config.SYMBOLS — each owns its own state,
 # thresholds, and MT5 order-tracking, but all share the single MT5 terminal
 # connection (see bot_runner.connect_mt5 / _mt5_lock).
 bots = {name: SymbolBot(symbol_cfg) for name, symbol_cfg in cfg.SYMBOLS.items()}
+
+
+@app.before_request
+def _require_login():
+    """Every route needs a valid session EXCEPT /login itself and static
+    assets. API routes (fetched by the dashboard's own JS, not navigated
+    to directly) get a 401 JSON body instead of a redirect — the
+    frontend's own fetch wrapper below sends the browser to /login on
+    seeing one, since a raw HTTP redirect response to a fetch() call
+    isn't something the page could otherwise react to sensibly.
+
+    Role check for the two admin-only control endpoints lives here too
+    (not duplicated into each route) — one place decides who can do
+    what, matching this project's own stated preference elsewhere for a
+    single source of truth over scattered checks."""
+    if request.endpoint in ("login", "static"):
+        return None
+    if not session.get("user"):
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "not authenticated"}), 401
+        return redirect(url_for("login"))
+    if request.path in ("/api/start", "/api/stop") and session.get("role") != "admin":
+        return jsonify({"error": "forbidden — view-only account"}), 403
+    return None
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+        # hmac.compare_digest for the password specifically — constant-time,
+        # avoids leaking password length/prefix via response timing.
+        if username == cfg.DASHBOARD_ADMIN_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN_PASSWORD):
+            session.clear()
+            session["user"] = username
+            session["role"] = "admin"
+            session.permanent = True
+            return redirect(url_for("dashboard"))
+        if username == cfg.DASHBOARD_GUEST_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST_PASSWORD):
+            session.clear()
+            session["user"] = username
+            session["role"] = "guest"
+            session.permanent = True
+            return redirect(url_for("dashboard"))
+        error = "Invalid username or password"
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 def _no_cache(resp):
@@ -268,9 +354,20 @@ def dashboard():
     # refresh even after app.py has restarted with new template content
     # (found directly: 2026-08-12, user restarted the process but the new
     # "Confirmed rules" section still didn't show up in the browser).
+    #
+    # is_guest, 2026-08-15, requested directly: "guest k liye rules wala
+    # part hide kerdo totally". UPDATED 2026-08-16: was read from an
+    # nginx-set X-Auth-User header (back when nginx did the authenticating
+    # via Basic Auth) — now read straight from the Flask session set by
+    # /login, since auth moved into the app itself. Same behavior, same
+    # role names ("admin"/"guest"), just sourced from `session` instead
+    # of a request header — _require_login() above already guarantees
+    # `session["role"]` exists by the time this route body runs.
+    is_guest = session.get("role") == "guest"
     html = render_template(
         "dashboard.html", symbols=list(bots.keys()),
         rules=_build_rule_matrix(), process_rules=_build_rules(),
+        is_guest=is_guest, current_user=session.get("user"),
     )
     return _no_cache(app.response_class(html))
 

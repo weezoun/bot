@@ -1,0 +1,14 @@
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://198.44.118.152:5050
+Press CTRL+C to quit
+198.44.118.152 - - [16/Aug/2026 04:26:52] "GET /login HTTP/1.0" 200 -
+198.44.118.152 - - [16/Aug/2026 04:28:35] "GET /login HTTP/1.0" 200 -
+198.44.118.152 - - [16/Aug/2026 04:28:40] "POST /login HTTP/1.0" 302 -
+198.44.118.152 - - [16/Aug/2026 04:28:41] "GET /api/status HTTP/1.0" 200 -
+198.44.118.152 - - [16/Aug/2026 04:36:31] "GET /login HTTP/1.0" 200 -
+198.44.118.152 - - [16/Aug/2026 04:37:22] "GET / HTTP/1.0" 302 -
+198.44.118.152 - - [16/Aug/2026 04:37:22] "GET /login HTTP/1.0" 200 -
+198.44.118.152 - - [16/Aug/2026 04:37:23] "GET /favicon.ico HTTP/1.0" 302 -
+198.44.118.152 - - [16/Aug/2026 04:37:23] "GET /login HTTP/1.0" 200 -

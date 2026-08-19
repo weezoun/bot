@@ -302,8 +302,19 @@ USA500 = SymbolConfig(
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
     scalp_tp_points=5.5, scalp_sl_atr_mult=0.8, scalp_sl_floor=3.0,
     trend_sl_atr_mult=0.75, trend_tp_points=5.5, min_atr=2.0,
-    fixed_sl_points=5.00,       # Rule 2 (WITH_TREND) — unchanged
-    scalp_fixed_sl_points=2.50, # Rule 5 (scalp) only — cut
+    # Rule 2 (WITH_TREND) SL cut 5.00 -> 2.50, 2026-08-16, requested
+    # directly after comparing per-rule stats against the 2026-08-15
+    # benchmark: "usa500... eventually yeh loss may hein... usa500 ka sl
+    # 2.5 kerdo with_trend per scalp per already hum ne kum kia hoa hai."
+    # REASON: post-benchmark Rule 2 alone was still net negative despite
+    # a better win rate (64.4%) than before — a higher win rate doesn't
+    # help if losing trades cost more than winning ones gain; now matches
+    # Rule 5's already-cut 2.50 exactly (previously Rule 2 was double
+    # Rule 5's SL). IMPACT: smaller loss per Rule 2 stop-out, same
+    # trade-off as every other SL cut on this bot — win rate itself
+    # doesn't change from this alone, only the cost of being wrong.
+    fixed_sl_points=2.50,       # Rule 2 (WITH_TREND) — cut from 5.00
+    scalp_fixed_sl_points=2.50, # Rule 5 (scalp) only — cut (unchanged this round)
     reversal_fixed_sl_points=5.00,  # Rule 7 (reversal) — held independently, unchanged
     # Fixed-point CONTINUOUS trail REMOVED, 2026-08-15 — superseded by the
     # unified %-of-TP continuous trail now used on all 6 symbols (see
@@ -340,7 +351,17 @@ XAUUSD = SymbolConfig(  # mean M15 ATR ~8.1 (near-identical to USA500 currently)
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
     scalp_tp_points=5.5, scalp_sl_atr_mult=0.8, scalp_sl_floor=3.0,
     trend_sl_atr_mult=0.75, trend_tp_points=5.5, min_atr=2.0,
-    fixed_sl_points=5.00,       # Rule 2 (WITH_TREND) — unchanged
+    # Rule 2 (WITH_TREND) SL cut 5.00 -> 2.00, 2026-08-16, requested
+    # directly after comparing per-rule stats against the 2026-08-15
+    # benchmark: "xauusd ka sl bhi with_trend 2 per kerdo" (same round as
+    # USA500's cut above — see that symbol's comment for the full
+    # reasoning: a higher post-benchmark win rate alone (64.6% here)
+    # doesn't help when losses still outweigh wins in dollar terms). Now
+    # matches Rule 5/7's already-cut 2.00 exactly (previously Rule 2 was
+    # 2.5x Rule 5/7's SL). IMPACT: smaller loss per Rule 2 stop-out —
+    # same trade-off as every other SL cut here, win rate itself doesn't
+    # change from this alone.
+    fixed_sl_points=2.00,       # Rule 2 (WITH_TREND) — cut from 5.00
     # Staircase trailing (2026-08-14, requested directly): "SL baar baar
     # hit hona hai, trailing kafi late update ho raha hai" — the generic
     # trail (40% of TP = 2.2pts before it even starts) left too much room
@@ -740,6 +761,15 @@ USA30 = SymbolConfig(  # mean M15 ATR ~53.7
     scalp_fixed_sl_points=50.0,  # Rule 5 (scalp) — explicitly HELD at 50, independent
     reversal_fixed_sl_points=25.0,  # Rule 7 (reversal) — independent, cut to match Rule 2
 )
+
+# Six-symbol addition (Coffee/Copper/Cocoa/Cotton/Palladium/Platinum),
+# 2026-08-18, REVERTED same day — requested directly: "in jo add kiye
+# hein remove ker do, yeh sub system hi bigar diya hai, reverse ker do
+# pehle wali state may le jao." Removed entirely, back to the original 6
+# symbols only. Not kept commented-out here (unlike smaller superseded
+# values elsewhere in this file) since it's a full symbol addition/removal,
+# not a value tweak — see the version history / memory file if the exact
+# config values are ever needed again.
 
 SYMBOLS = {
     "USA500": USA500, "USA100": USA100, "USA30": USA30,

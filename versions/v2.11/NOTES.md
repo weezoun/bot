@@ -5,7 +5,10 @@ that first for the trend direction calculation fix. This file lists
 ONLY what changed since that save point — it is not a standalone history
 of the whole bot.
 
-**Next version:** none yet — this is the current version. See
+**Next version:** [`../v2.12/NOTES.md`](../v2.12/NOTES.md) — 2026-08-18,
+USA500/XAUUSD Rule 2 (WITH_TREND) SL cut further (based on a per-rule
+before/after comparison against this version's own 2026-08-15 benchmark)
+plus a standing 1-week no-further-changes observation plan. See
 [`../INDEX.md`](../INDEX.md) for the full chain of every version, in
 order, with a one-line summary of each.
 

@@ -6,7 +6,10 @@ XAUUSD) and the trailing-mechanism unification that followed it. This
 file lists ONLY what changed since that save point — it is not a
 standalone history of the whole bot.
 
-**Next version:** none yet — this is the current version. See
+**Next version:** [`../v2.13/NOTES.md`](../v2.13/NOTES.md) — 2026-08-21,
+USA100 Rule 2 SL cut (30→15) after real live evidence of a rapid-reentry
+pattern — breaks this version's own 1-week observation plan deliberately,
+at the user's own explicit request, rather than waiting out the week. See
 [`../INDEX.md`](../INDEX.md) for the full chain of every version, in
 order, with a one-line summary of each.
 

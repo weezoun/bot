@@ -26,6 +26,12 @@
 #      nginx at all. The existing Windows Firewall rule scoping 80/443
 #      to Cloudflare's IP ranges only (see bot-deployment-infra memory)
 #      still applies on top of this and is untouched by this script.
+#
+# 2026-08-20: also forwards port 22 the same way, for sshd inside WSL2 —
+# needed so GitHub Actions can reach the VPS to run weezoun-website's
+# deploy.sh. Same drift problem, same fix. Port 22's Windows Firewall
+# rule is intentionally open to any source (GitHub Actions has no fixed
+# IP range), unlike 80/443's Cloudflare-only scoping.
 
 Start-Sleep -Seconds 10  # give the network adapters a moment right after logon
 
@@ -42,8 +48,10 @@ $wslIp = (wsl -- bash -c "ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+)
 if ($wslIp -match '^\d+\.\d+\.\d+\.\d+$') {
     netsh interface portproxy delete v4tov4 listenport=80 listenaddress=198.44.118.152 2>$null | Out-Null
     netsh interface portproxy delete v4tov4 listenport=443 listenaddress=198.44.118.152 2>$null | Out-Null
+    netsh interface portproxy delete v4tov4 listenport=22 listenaddress=198.44.118.152 2>$null | Out-Null
     netsh interface portproxy add v4tov4 listenport=80 listenaddress=198.44.118.152 connectport=80 connectaddress=$wslIp | Out-Null
     netsh interface portproxy add v4tov4 listenport=443 listenaddress=198.44.118.152 connectport=443 connectaddress=$wslIp | Out-Null
+    netsh interface portproxy add v4tov4 listenport=22 listenaddress=198.44.118.152 connectport=22 connectaddress=$wslIp | Out-Null
     Add-Content -Path "c:\bot\logs\wsl_nginx_startup.log" -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') OK - portproxy set to $wslIp"
 } else {
     Add-Content -Path "c:\bot\logs\wsl_nginx_startup.log" -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') FAILED - could not read WSL2 IP (got: '$wslIp')"

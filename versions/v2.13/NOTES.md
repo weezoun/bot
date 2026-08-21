@@ -74,23 +74,59 @@ closely rather than assuming either direction is correct.
 
 ---
 
+### SECOND REVERSAL, same day — settled back to 15.0
+
+The 50.0 widening above was reversed again, same day, before generating
+much of its own data — user checked real stats and reconsidered once
+more: *"ager hum sl ko 50 kerdein to woh us ko bhi hit ker lega, to
+behter hai k us ko 15 hi kerdo, 50 ko to hum pehle bhi ek baar try ker
+chuke hein shayad us k baad hi kum ker k 30 kia tha, ab 15 kerdo jeise
+scalp aur reverse k liye hai."* Key new information: 50 had apparently
+been tried on this exact symbol before (predating this session's own
+records) and is what led to it being cut to 30 in the first place — so
+widening back to 50 risked repeating a value already found not to work,
+rather than testing something new.
+
+**Final value**: `fixed_sl_points` = **15.0** — now uniform with Rule
+5/7 (both already 15.0 since `v2.11`), matching the shape USA500/XAUUSD
+were brought to on 2026-08-18. Same day, same lever, three values tried
+in sequence: 30 (original) → 15 (tried) → 50 (tried) → **15 (settled)**.
+
+Restarted and verified again after this final change — all 6 symbols
+started in the same second, confirmed healthy. `code/` and
+`stats/trade_history_at_v2.13_save.db` refreshed to reflect this final
+state (not the 50.0 mid-point) — the version folder always reflects
+where things actually ended up, not every intermediate value tried along
+the way.
+
+**Note for future sessions**: this SL value has now been argued for in
+BOTH directions (tighter and wider) with real reasoning behind each, on
+the same day. If it comes up again, check the actual before/after trade
+data first rather than re-deriving either argument from scratch — see
+`config.py`'s own comment on this field for the same reminder.
+
+---
+
 ## Stats baseline at this version's save time (account 49825877, demo)
+## — captured AFTER both reversals, at the final settled 15.0 value
 
 | Symbol | Trades | W/L | Win% | Net P/L |
 |---|---|---|---|---|
-| USA500 | 458 | 221/237 | 48.2% | -245.49 |
-| USA100 | 362 | 251/111 | 69.3% | -119.44 |
-| USA30 | 321 | 193/128 | 60.1% | -854.10 |
-| XAUUSD | 740 | 381/359 | 51.5% | -1109.00 |
+| USA500 | 460 | 223/237 | 48.5% | -243.12 |
+| USA100 | 364 | 252/112 | 69.2% | -127.89 |
+| USA30 | 326 | 196/130 | 60.1% | -873.60 |
+| XAUUSD | 748 | 384/364 | 51.3% | -1560.00 |
 | GBPUSD | 203 | 54/145 | 26.6% | -5454.00 |
 | USDJPY | 196 | 75/121 | 38.3% | -2438.80 |
 
-Overall: 2281 trades, 1175W/1102L, win rate 51.51%, net P/L -10805.83.
+Overall: 2298 trades, 1184W/1110L, win rate 51.52%, net P/L -11282.41.
 
-(This baseline is BEFORE today's USA100 SL cut has a real chance to show
-its own effect — it's this version's starting point, not its own
-results. A restart was already done and verified — all 6 symbols
-reconnected instantly, USA100's new 15.0 Rule 2 SL confirmed live.)
+(This baseline is BEFORE today's final USA100 SL settle [15.0] has a
+real chance to show its own effect — a handful of trades landed while
+the brief 50.0 experiment was live, included in the totals above like
+any other real trade, not backed out. A restart was already done and
+verified after the FINAL change — all 6 symbols reconnected instantly,
+USA100's Rule 2 SL confirmed at 15.0 live.)
 
 Full strategy reference: `code/docs/current_strategy.md` (kept in sync
 with the live bot going forward — read the live copy at

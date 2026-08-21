@@ -682,31 +682,31 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
     scalp_tp_points=30.0, scalp_sl_atr_mult=0.8, scalp_sl_floor=22.0,
     trend_sl_atr_mult=0.75, trend_tp_points=30.0, min_atr=2.0,
-    # Rule 2 (WITH_TREND) SL — REVERSED SAME DAY, 2026-08-21. First tried
-    # cutting 30.0 -> 15.0 (see version history / memory for that
-    # reasoning), but the user reconsidered before it had a chance to run:
-    # "mere khayal may hum sl ko tight ker rahe hein is k bajaye yeh karo
-    # k sl ko agey barha do 50 per kerdo, kum ker k to aur ziada trade
-    # lelega choti moves per aur ziada bahar nikale ga." REASON: the
-    # diagnosed problem (Rule 4's benchmark-crossing fast path re-firing
-    # rapidly in a choppy stretch, 18 WITH_TREND SELLs in 11 minutes,
-    # 2026-08-21) is made WORSE by a tighter SL, not better — a smaller
-    # stop is easier for ordinary short-term noise to reach, so tightening
-    # it would make each of those rapid re-entries MORE likely to get
-    # stopped out on chop rather than fewer. A WIDER SL gives each entry
-    # more room to survive normal noise before being stopped — the
-    # opposite lever from every other SL cut on this bot, deliberately,
-    # because the underlying problem here is entry FREQUENCY/noise-
-    # sensitivity, not "losses cost too much relative to wins."
-    # IMPACT: each individual stop-out now costs MORE if it happens
-    # (50 vs the original 30), but the bet is that fewer of the rapid
-    # re-entries actually reach a 50-point adverse move than reach a
-    # 15- or even 30-point one, so the NET effect on rapid-reentry bursts
-    # specifically should be fewer stop-outs, not smaller ones. Genuinely
-    # experimental, explicitly framed that way by the user — the opposite
-    # direction from USA500/XAUUSD's own SL cuts earlier this version
-    # chain, deliberately, since the diagnosis here is different.
-    fixed_sl_points=50.0,       # Rule 2 (WITH_TREND) — widened from 30.0 (briefly tried 15.0 first, reversed same day)
+    # Rule 2 (WITH_TREND) SL — SETTLED, 2026-08-21, after two reversals
+    # the same day. Sequence: 30 (original) -> tried cutting to 15 ->
+    # reversed to widening at 50 ("kum ker k to aur ziada trade lelega
+    # choti moves per aur ziada bahar nikale ga") -> reversed AGAIN back
+    # to cutting, after checking real stats: "ager hum sl ko 50 kerdein to
+    # woh us ko bhi hit ker lega, to behter hai k us ko 15 hi kerdo, 50 ko
+    # to hum pehle bhi ek baar try ker chuke hein shayad us k baad hi kum
+    # ker k 30 kia tha, ab 15 kerdo jeise scalp aur reverse k liye hai."
+    # REASON for this final direction: the user's own account of this
+    # symbol's history — 50 was apparently already tried once before and
+    # is what led to it being cut down to 30 in the first place — so
+    # widening back to 50 was likely repeating a value already found not
+    # to work, not a fresh idea. Final value matches Rule 5/7's own
+    # already-cut 15.0 exactly (uniform across all three, same shape
+    # USA500/XAUUSD were brought to on 2026-08-18 for a similar reason).
+    # IMPACT: smaller loss per Rule 2 stop-out, same trade-off as every
+    # other SL cut on this bot — does not by itself fix the diagnosed
+    # rapid-reentry pattern (Rule 4's benchmark-crossing fast path,
+    # untouched by this value either way), only changes what each
+    # stop-out costs while that pattern is happening. NOTE FOR NEXT TIME
+    # THIS VALUE IS RECONSIDERED: both directions (tighter AND wider) have
+    # now been argued for with real reasoning on the same day — if
+    # reopening this again, check the actual before/after data first
+    # rather than re-deriving the argument from scratch.
+    fixed_sl_points=15.0,       # Rule 2 (WITH_TREND) — settled at 15.0 (30 -> tried 15 -> tried 50 -> back to 15, all same day)
     scalp_fixed_sl_points=15.0, # Rule 5 (scalp) — cut, 2026-08-14; Rule 7 (reversal) follows automatically (no independent override set)
 )
 

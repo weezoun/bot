@@ -33,6 +33,53 @@ _mt5_lock = threading.Lock()  # order_send/history calls aren't documented threa
 _connected = False
 _last_connect_error = ""
 
+# Auto-reconnect, 2026-08-24, requested directly after a real incident:
+# the bot's own long-running process (alive since 2026-08-21) kept
+# logging "Not enough rate data" for ALL 6 symbols, in a tight loop,
+# apparently for days — even though a completely fresh, separate python
+# process connected to MT5 and fetched rates instantly. Root cause:
+# is_connected() just returns the cached `_connected` module flag, set
+# ONCE by connect_mt5() at startup (and again only in _loop()'s own
+# startup path) — NOTHING ever re-checks or refreshes it once the bot is
+# running, so if the underlying MT5 IPC session goes stale for ANY
+# reason (terminal restart, a dropped connection over a weekend market
+# closure and reopen, etc.), bot_tick() keeps sailing past
+# `if not self.state.connected: return` believing everything is fine,
+# then fails at the actual data fetch, forever, with no retry anywhere.
+# User's question that prompted this: "saturday sunday market band rahe
+# gi to kya yeh her weekend per aesa hi karega? iska solution hona
+# chahiye" — yes, it would have, on every future weekend or any other
+# MT5 disconnect, without this.
+#
+# Fix: whenever a symbol's tick hits either failure mode (is_connected()
+# false, OR true but the actual rates fetch still fails), it calls
+# _maybe_reconnect() below, which re-runs the exact same connect_mt5()
+# used at startup — refreshing `_connected` for real instead of trusting
+# a stale cached value. Rate-limited (cooldown, not per-tick) since up to
+# 6 symbols' threads can all hit this in the same failure window and
+# connect_mt5() itself can be slow (a full terminal64.exe relaunch has
+# been observed taking up to ~60s) — retrying every 2s from 6 threads at
+# once would pile up reconnect attempts instead of cleanly recovering.
+_last_reconnect_attempt = 0.0
+_RECONNECT_COOLDOWN_SECONDS = 30
+
+
+def _maybe_reconnect():
+    """Best-effort, rate-limited reconnect attempt — called whenever a
+    symbol's tick discovers the MT5 connection isn't actually working,
+    regardless of what the cached is_connected() flag says. Silent on
+    failure (connect_mt5() already logs its own error into
+    _last_connect_error); the caller's own "Not enough rate data" log
+    line is enough visibility for a single tick — this just gives the
+    bot a real chance to self-heal on the next one instead of never
+    trying again."""
+    global _last_reconnect_attempt
+    now = time.time()
+    if now - _last_reconnect_attempt < _RECONNECT_COOLDOWN_SECONDS:
+        return
+    _last_reconnect_attempt = now
+    connect_mt5()
+
 
 def connect_mt5() -> bool:
     """Shared across all symbols — one terminal session, one login."""
@@ -1482,6 +1529,7 @@ class SymbolBot:
         self.state.attempt += 1
         self.state.connected = is_connected()
         if not self.state.connected:
+            _maybe_reconnect()  # see module-level comment — is_connected() can be stale
             return
 
         tick = mt5.symbol_info_tick(self.cfg.SYMBOL)
@@ -1498,6 +1546,7 @@ class SymbolBot:
         df = self._fetch_rates()
         if df is None:
             self.state.log("Not enough rate data")
+            _maybe_reconnect()  # is_connected() said True but the real fetch still failed — stale connection
             with self.state.lock:
                 self.state.live = live
                 self.state.updated_at = datetime.now().strftime("%H:%M:%S")

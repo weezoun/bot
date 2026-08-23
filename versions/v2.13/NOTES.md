@@ -6,9 +6,13 @@ observation plan this version's own change comes out of. This file
 lists ONLY what changed since that save point — it is not a standalone
 history of the whole bot.
 
-**Next version:** none yet — this is the current version. See
-[`../INDEX.md`](../INDEX.md) for the full chain of every version, in
-order, with a one-line summary of each.
+**Next version:** [`../v2.14/NOTES.md`](../v2.14/NOTES.md) — 2026-08-24,
+a real infrastructure fix: the bot's MT5 connection never re-checked
+itself once running, so any disconnect (weekend closure, terminal
+crash) left it stuck forever showing "Not enough rate data" — a
+rate-limited auto-reconnect was added and verified live. Not a rule/SL
+change. See [`../INDEX.md`](../INDEX.md) for the full chain of every
+version, in order, with a one-line summary of each.
 
 `code/` is a frozen copy of every source file as it stood at this
 version's save time. `stats/trade_history_at_v2.13_save.db` is a frozen

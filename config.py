@@ -682,31 +682,31 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
     scalp_tp_points=30.0, scalp_sl_atr_mult=0.8, scalp_sl_floor=22.0,
     trend_sl_atr_mult=0.75, trend_tp_points=30.0, min_atr=2.0,
-    # Rule 2 (WITH_TREND) SL — SETTLED, 2026-08-21, after two reversals
-    # the same day. Sequence: 30 (original) -> tried cutting to 15 ->
-    # reversed to widening at 50 ("kum ker k to aur ziada trade lelega
-    # choti moves per aur ziada bahar nikale ga") -> reversed AGAIN back
-    # to cutting, after checking real stats: "ager hum sl ko 50 kerdein to
-    # woh us ko bhi hit ker lega, to behter hai k us ko 15 hi kerdo, 50 ko
-    # to hum pehle bhi ek baar try ker chuke hein shayad us k baad hi kum
-    # ker k 30 kia tha, ab 15 kerdo jeise scalp aur reverse k liye hai."
-    # REASON for this final direction: the user's own account of this
-    # symbol's history — 50 was apparently already tried once before and
-    # is what led to it being cut down to 30 in the first place — so
-    # widening back to 50 was likely repeating a value already found not
-    # to work, not a fresh idea. Final value matches Rule 5/7's own
-    # already-cut 15.0 exactly (uniform across all three, same shape
-    # USA500/XAUUSD were brought to on 2026-08-18 for a similar reason).
-    # IMPACT: smaller loss per Rule 2 stop-out, same trade-off as every
-    # other SL cut on this bot — does not by itself fix the diagnosed
-    # rapid-reentry pattern (Rule 4's benchmark-crossing fast path,
-    # untouched by this value either way), only changes what each
-    # stop-out costs while that pattern is happening. NOTE FOR NEXT TIME
-    # THIS VALUE IS RECONSIDERED: both directions (tighter AND wider) have
-    # now been argued for with real reasoning on the same day — if
-    # reopening this again, check the actual before/after data first
-    # rather than re-deriving the argument from scratch.
-    fixed_sl_points=15.0,       # Rule 2 (WITH_TREND) — settled at 15.0 (30 -> tried 15 -> tried 50 -> back to 15, all same day)
+    # Rule 2 (WITH_TREND) SL — REVERTED BACK TO 30, 2026-08-25. Full
+    # history: 30 (original) -> 2026-08-21 tried 15 -> tried 50 -> settled
+    # back at 15 (see v2.13). Then ran live at 15 for ~4 days (2026-08-21
+    # through 2026-08-25) and checked real stats: NO improvement — same
+    # "no faida" verdict the user gave 50 and 15 both. 30 was the one
+    # value that had actually shown some real benefit historically, so
+    # reverting to it rather than trying yet another new number.
+    # REASON (user's words): "USA100 ka with_trend ka sl wapis se 30 per
+    # kerdo, 15 per kerne ka koi faida nahi ho raha hai, hum ne 50 bhi kia
+    # koi faida nahi hoa, 15 bhi kia no faida, lekin 30 per atleast kuch
+    # faida hoa tha to dobara set ker k dekho kuch din wahan per chala ker
+    # dekhta hon."
+    # IMPACT: back to the original, larger per-stop-out loss on Rule 2,
+    # but this is the one value with a track record of net benefit for
+    # this symbol/rule — trading smaller-loss-per-stop (15/50) for actual
+    # profitability (30). Does not touch Rule 4's diagnosed rapid-reentry
+    # pattern (v2.13) — that's addressed separately (see the singleton
+    # duplicate-process fix, v2.15, for the actual process-level issue
+    # that was mistaken for a Rule 1 violation around this same date).
+    # NOTE FOR NEXT TIME: 15, 30, and 50 have ALL now been tried on this
+    # exact value with real stats checked each time — 30 is the only one
+    # with a positive track record. If reconsidering again, that's 3 data
+    # points already spent; look for a different lever (e.g. Rule 4's own
+    # gate) before re-trying a 4th SL number on this same rule.
+    fixed_sl_points=30.0,       # Rule 2 (WITH_TREND) — reverted to 30, 2026-08-25 (15 and 50 both tried, neither helped)
     scalp_fixed_sl_points=15.0, # Rule 5 (scalp) — cut, 2026-08-14; Rule 7 (reversal) follows automatically (no independent override set)
 )
 

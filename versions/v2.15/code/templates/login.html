@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login — Trading Bot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1a2332;
+      --muted: #5c6b7a;
+      --panel: #fffdf8;
+      --line: #d9d0c0;
+      --teal: #0d6e6e;
+      --teal-dim: #0a5555;
+      --red: #b91c1c;
+      --shadow: 0 10px 30px rgba(26, 35, 50, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #e7f2f0 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, #f7e9d8 0%, transparent 50%),
+        var(--bg);
+    }
+    .card {
+      width: 100%;
+      max-width: 360px;
+      margin: 1.5rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 2rem 1.75rem;
+    }
+    h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    p.sub {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0 0 0.35rem;
+    }
+    input {
+      width: 100%;
+      font: inherit;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(13, 110, 110, 0.12);
+    }
+    button {
+      width: 100%;
+      font: inherit;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 0.7rem 1rem;
+      cursor: pointer;
+      background: var(--teal);
+      color: #fff;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    button:hover { background: var(--teal-dim); }
+    button:active { transform: scale(0.98); }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: var(--red);
+      border-radius: 10px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login" autocomplete="off">
+    <h1>Trading Bot</h1>
+    <p class="sub">Sign in to view the dashboard.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" required autofocus />
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required />
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>

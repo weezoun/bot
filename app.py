@@ -1,5 +1,8 @@
 import hmac
+import msvcrt
+import os
 import secrets
+import sys
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,6 +16,58 @@ import trade_store
 from bot_runner import SymbolBot, connect_mt5, is_connected
 
 app = Flask(__name__)
+
+# Singleton-instance lock, 2026-08-25, added after a real duplicate-process
+# incident: a restart (Stop-ScheduledTask/Start-Process style) can fire
+# before the OLD pythonw.exe has actually exited, leaving TWO live bot
+# processes for a window. The old one's Rule 1 startup gate had already
+# cleared long ago, so it kept trading normally — from the outside this
+# looked exactly like "the bot just restarted and immediately took a trade,
+# bypassing Rule 1," when Rule 1 itself was never actually violated by any
+# single process. Root cause is a stale/still-alive OLD instance, not the
+# gate logic (re-verified correct, live-tested clean).
+#
+# Fix: hold an OS-level exclusive lock on bot.lock for the process's whole
+# lifetime via msvcrt.locking(). Windows releases file locks automatically
+# the instant a process exits or is killed — even a crash — so this needs
+# no stale-PID cleanup logic: a second launch simply fails fast (loud, in
+# task_err.log) instead of silently running side-by-side with a live one.
+_LOCK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot.lock")
+_lock_file = None  # kept referenced for the process lifetime — closing/GC'ing it releases the lock
+
+
+def _acquire_singleton_lock():
+    global _lock_file
+    # Open in r+b (not "a+"): "a+"'s write position floats to EOF, which
+    # made a first attempt at this lock a no-op — msvcrt.locking() locks
+    # whatever 1 byte sits at the CURRENT file position, so two processes
+    # opened in "a+" mode were locking two DIFFERENT bytes (no conflict at
+    # all) and only crashed later, messily, at the write/flush call. Every
+    # process must contend for the exact same byte, so seek(0) explicitly
+    # right before locking — that single byte (offset 0) is the real mutex.
+    if not os.path.exists(_LOCK_PATH):
+        with open(_LOCK_PATH, "wb") as f:
+            f.write(b"0")
+    _lock_file = open(_LOCK_PATH, "r+b")
+    _lock_file.seek(0)
+    try:
+        msvcrt.locking(_lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        print(
+            "FATAL: another bot process already holds bot.lock — refusing to "
+            "start a second instance (this is what causes phantom "
+            "same-candle/Rule-1-looking trades from a stale old process). "
+            "Exiting."
+        )
+        sys.exit(1)
+    # Lock acquired — we're the only process that can reach this line.
+    # Bytes beyond offset 0 aren't part of the locked region, but that's
+    # harmless: no other process can get past the locking() call above to
+    # race us here.
+    _lock_file.seek(0)
+    _lock_file.write(str(os.getpid()).encode())
+    _lock_file.truncate()
+    _lock_file.flush()
 
 # Session-based login, 2026-08-16, requested directly — replaces nginx's
 # HTTP Basic Auth (2026-08-15) so the dashboard can have a real login
@@ -456,6 +511,7 @@ def api_stop():
 
 
 if __name__ == "__main__":
+    _acquire_singleton_lock()
     connect_mt5()
     for bot in bots.values():
         bot.start()  # auto-start on launch

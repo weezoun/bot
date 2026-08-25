@@ -5,7 +5,9 @@ that first for USA100's Rule 2 SL settling at 15 after two same-day
 reversals. This file lists ONLY what changed since that save point — it
 is not a standalone history of the whole bot.
 
-**Next version:** none yet — this is the current version. See
+**Next version:** [`../v2.15/NOTES.md`](../v2.15/NOTES.md) — singleton
+duplicate-process lock (the real explanation for a Rule-1-looking
+violation report) and USA100 Rule 2 SL reverted 15 → 30. See
 [`../INDEX.md`](../INDEX.md) for the full chain of every version, in
 order, with a one-line summary of each.
 

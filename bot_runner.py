@@ -682,9 +682,11 @@ class SymbolBot:
             self.state.rule4_gate = {
                 'side': side, 'bar_time': live_snap.bar_time,
                 'benchmark': _relevant_di(side, live_snap),
+                'sl_time': time.time(),  # 2026-08-27: minimum-cooldown floor, see _check_rule4_gate
             }
             self.state.log(
-                f"Rule 4: WITH_TREND SL ({side}) — {side}-side re-entry needs EITHER DI crossing "
+                f"Rule 4: WITH_TREND SL ({side}) — {side}-side re-entry needs "
+                f"{cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum wait, THEN EITHER DI crossing "
                 f"{_relevant_di(side, live_snap):.1f} (benchmark) OR rolling DI rising + forming "
                 f"candle definitely {'green' if side == 'BUY' else 'red'}"
             )
@@ -933,10 +935,23 @@ class SymbolBot:
         2. SLOWER: the original check — that side's DI above the
            immediately preceding candle (rolling) AND the CURRENTLY
            FORMING candle DEFINITELY the required color (absolute
-           requirement, not just "not opposite")."""
+           requirement, not just "not opposite").
+
+        CHANGED 2026-08-27 (requested directly, real XAUUSD case): a
+        minimum-time floor now gates BOTH paths above. Caught live: SL hit,
+        then a fresh same-side WITH_TREND entry opened again almost
+        immediately — the fast path's benchmark is captured AT THE SL
+        ITSELF, so a single noisy tick right after can clear it trivially,
+        and the slow path only needs one favorable tick too. Neither path
+        checks AT ALL until cfg.RULE4_MIN_COOLDOWN_SECONDS has elapsed
+        since the SL — not a full-candle wait (that was tried and removed
+        in v2.2/v2.5), just a real floor before either is even evaluated."""
         gate = self.state.rule4_gate
         if not gate:
             return
+        elapsed = time.time() - gate['sl_time']
+        if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
+            return  # still inside the minimum cooldown — neither path checked yet
         side = gate['side']
         current_di = _relevant_di(side, live_snap)
         benchmark_crossed = current_di > gate['benchmark']

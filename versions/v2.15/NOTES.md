@@ -100,4 +100,6 @@ rule.
 
 ## Next version
 
-(none yet)
+[v2.16](../v2.16/NOTES.md) — Rule 4 (WITH_TREND SL re-entry gate) given a
+real minimum cooldown (180s) after a live XAUUSD case of rapid-fire
+same-second re-entries following an SL close.

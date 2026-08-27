@@ -55,11 +55,38 @@ SESSION_LIFETIME_MINUTES = 30
 FLASK_PORT = 5050
 LOG_MAX = 200
 
-# When a position closes because its SL (or a trailing-adjusted SL) got hit,
-# hold off on any new entry until the NEXT M15 candle starts, then let
-# decide()/evaluate_entry() re-evaluate fresh with full confirmation (RSI,
-# ADX, DI, candle color) — no direction is forced either way.
+# Master switch for Rule 4 (WITH_TREND SL -> re-entry gate on that same
+# side). NOTE: despite the name, this no longer means "wait for the next
+# M15 candle" literally — that literal full-candle wait was removed
+# 2026-08-13 (Rule 3/4/6 all found blocking a genuine same-candle
+# recovery). What it actually gates now is whether Rule 4's gate/benchmark
+# mechanism (_check_rule4_gate) runs at all.
 SL_COOLDOWN_UNTIL_NEXT_CANDLE = True
+
+# Rule 4 minimum re-entry cooldown, 2026-08-27 (requested directly after a
+# real XAUUSD case: WITH_TREND SL hit, then a fresh WITH_TREND entry on the
+# SAME side opened again almost immediately). REASON: Rule 4's "fast path"
+# clears the instant the DI reading ticks back above the benchmark
+# captured AT THE MOMENT OF THE SL — with no time floor, ordinary tick
+# noise right after a stop-out can satisfy that in the very next poll,
+# and the already-live rolling-DI/candle "slow path" can do the same on
+# a single favorable tick. Neither path is wrong on its own -- the missing
+# piece was any minimum time for the SL'd move to actually prove itself
+# before either path is even checked.
+#
+# User's own framing: "ager sl loss may hit ho to phir wait kare thori
+# der, poori candle close hone ka wait nahi lekin koi logical wait" — NOT
+# a full-candle wait (already tried and removed once, see above), just a
+# real floor before either clearing path is allowed to fire. A WITH_TREND
+# TP close (Rule 3) is UNCHANGED -- this only affects the SL side (Rule 4).
+#
+# 180s picked as a starting value: about 1/5 of an M15 candle -- long
+# enough that a single noisy tick right after the stop-out can't clear it,
+# short enough that a genuine fast recovery still gets back in well within
+# the same candle. Applies globally (all 6 symbols share Rule 4's
+# mechanism) -- adjust this one number if it proves too short/long once
+# there's real data to check.
+RULE4_MIN_COOLDOWN_SECONDS = 180
 
 
 class SymbolConfig:

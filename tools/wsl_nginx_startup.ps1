@@ -3,6 +3,18 @@
 # boot, and re-points the Windows-side port forward at WSL2's CURRENT
 # private IP.
 #
+# 2026-08-28: WSL2's Ubuntu was uninstalled/reinstalled by the user (fresh
+# distro, new user 'capta', old user 'weezoun' and its home dir/nginx/
+# weezoun-website content all gone). Full setup redone from scratch: nginx
+# + certbot + openssh-server reinstalled, /etc/nginx/sites-available/
+# trading-bot recreated as its OWN separate file (never merged into
+# weezoun-website's config, per standing instruction), rate-limit zones in
+# /etc/nginx/conf.d/trading-bot-ratelimit.conf, SSL re-issued via certbot
+# (worked immediately - confirms the Cloudflare DNS record for
+# trading.weezoun.com is still Proxied). This script's embedded sudo
+# password below updated to match the new user's password. Rebuilding
+# weezoun-website itself was explicitly OUT of scope for this pass — only
+# the bot's own nginx/dashboard setup was restored.
 # REASON this exists, 2026-08-16: after a genuine Windows restart (not
 # the softer restarts used earlier this session), WSL2 came back up in
 # standard NAT mode with a private IP (172.25.x.x) instead of the
@@ -39,7 +51,7 @@ wsl -- true
 
 Start-Sleep -Seconds 5
 
-wsl -- bash -c "pgrep -x nginx > /dev/null || echo 'PrisoneR1' | sudo -S nginx"
+wsl -- bash -c "pgrep -x nginx > /dev/null || echo 'Prison3R!' | sudo -S nginx"
 
 Start-Sleep -Seconds 2
 

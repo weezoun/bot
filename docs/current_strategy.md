@@ -206,6 +206,39 @@ regressing it. Verified with a standalone test (mocked `order_send`): a
 case engineered to trigger the clamp into regressing now sends nothing;
 a genuine forward improvement still sends normally.
 
+**Correction, 2026-08-27: minimum re-entry cooldown added to Rule 4's SL
+side.** Real XAUUSD case: a WITH_TREND SL close was immediately followed
+by a fresh same-side WITH_TREND entry — 12 trades in ~11 minutes on one
+occasion, several re-opening the SAME second as the prior close, net
+-604.00 in that one burst. Root cause: neither of Rule 4's two clearing
+paths (benchmark-cross fast path, rolling-DI+candle slow path) had any
+time floor — a single noisy tick right after a stop-out could clear
+either one almost instantly. Added `cfg.RULE4_MIN_COOLDOWN_SECONDS`
+(180s, global, all 6 symbols): `rule4_gate` now records the SL's
+wall-clock time, and `_check_rule4_gate` returns without evaluating
+EITHER path until that many seconds have elapsed since the SL. Not a
+full-candle wait (that exact mechanism was tried and removed in
+v2.2/v2.5) — just a real floor before either path is even checked. Rule
+3 (WITH_TREND TP close) is completely unaffected.
+
+**Correction, 2026-08-28: the cooldown above only applies to an actual
+LOSS.** User's original ask, precisely re-read: "ager sl loss may hit ho
+to phir wait kare... lekin ager with_trend sl k sath [profit mein]
+close ho to jo kaam ker raha hai woh kerta hai" — the 180s floor was
+only ever meant for a losing SL, not a trailing-SL exit that closes in
+PROFIT. The 2026-08-27 fix above had applied it to every SL close
+regardless of the realized profit sign — caught live on XAUUSD: a SELL
+WITH_TREND position closed via its trailing SL at **+160.00 profit**
+(a successful trade, not a failed entry) still got the full 180s+DI
+cooldown treatment, blocking a legitimate continuation entry in an
+obvious, ongoing downtrend for no real reason. Fixed in
+`_classify_and_record_close`: `sl_time` (the cooldown floor) is now only
+set when `profit < 0`; a profit-close via trailing SL sets the gate with
+`sl_time=None`, and `_check_rule4_gate` treats that as "skip the minimum-
+wait floor entirely, go straight to the two original clearing paths" —
+exactly the pre-2026-08-27 behavior for that specific case. A losing SL
+still gets the full 180s+confirmation wait, unchanged.
+
 **Rule 5 — Scalp (COUNTER_SCALP) entry** (2026-08-12, merges the user's
 edits into the pre-existing scalp-entry card): trend UP/DOWN, DI opposes
 the trend (counter-trend by definition), RSI inside the scalp band, ATR

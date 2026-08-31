@@ -82,10 +82,17 @@ def _maybe_reconnect():
 
 
 def connect_mt5() -> bool:
-    """Shared across all symbols — one terminal session, one login."""
+    """Shared across all symbols — one terminal session, one login.
+
+    `path=cfg.MT5_TERMINAL_PATH` (2026-08-31, requested directly — see
+    that config value's own comment for the full REASON): pins this
+    process to its OWN dedicated terminal install, rather than letting
+    mt5.initialize() attach to whichever terminal it happens to find —
+    undefined/ambiguous now that two separate MT5 terminals exist on
+    this machine (demo + live)."""
     global _connected, _last_connect_error
     with _mt5_lock:
-        if not mt5.initialize():
+        if not mt5.initialize(path=cfg.MT5_TERMINAL_PATH):
             _last_connect_error = f"initialize failed: {mt5.last_error()}"
             _connected = False
             return False
@@ -96,6 +103,12 @@ def connect_mt5() -> bool:
             return False
         _connected = True
         _last_connect_error = ""
+        # Proof, not assumption — logs the ACTUAL terminal path MT5
+        # itself reports being attached to, so this is verifiable in the
+        # bot's own log rather than just trusted from the config value
+        # passed in above.
+        term = mt5.terminal_info()
+        print(f"[connect_mt5] attached to terminal: {term.path if term else '?'} (expected {cfg.MT5_TERMINAL_PATH})")
         # Not every configured symbol is in Market Watch by default (e.g.
         # USA100 on this broker) — symbol_info_tick()/order_send() silently
         # fail on a non-selected symbol, so make sure every one we trade is
@@ -679,17 +692,45 @@ class SymbolBot:
             # rolling-DI-vs-preceding-candle + forming candle color check
             # (slower path, unchanged) — whichever comes first, checked
             # fresh every tick, same candle as the SL or not.
+            #
+            # CORRECTED 2026-08-28 (real misimplementation caught by the
+            # user): the 2026-08-27 cooldown floor below was applied to
+            # EVERY SL close — but the user's original ask was explicitly
+            # scoped to a LOSING SL only ("ager sl loss may hit ho to phir
+            # wait kare... lekin ager with_trend sl k sath [profit mein,
+            # i.e. trailing] close ho to jo kaam ker raha hai woh kerta
+            # hai"). A trailing-SL exit that closed in PROFIT is a
+            # successful trade, not a failed entry the rapid-reentry
+            # protection was meant to guard against — caught live on
+            # XAUUSD: a +160 profit trailing-SL close still triggered the
+            # full 180s+DI-confirmation wait, blocking a legitimate
+            # continuation entry in an obvious, ongoing trend. Fix:
+            # `sl_time` (the cooldown floor) is now only set when this
+            # close was an actual loss (profit < 0) — a profitable
+            # trailing-SL close sets the gate with `sl_time=None`, which
+            # `_check_rule4_gate` treats as "no minimum-wait floor, go
+            # straight to the two original clearing paths" (the exact
+            # pre-2026-08-27 behavior for this case).
+            sl_time = time.time() if profit < 0 else None
             self.state.rule4_gate = {
                 'side': side, 'bar_time': live_snap.bar_time,
                 'benchmark': _relevant_di(side, live_snap),
-                'sl_time': time.time(),  # 2026-08-27: minimum-cooldown floor, see _check_rule4_gate
+                'sl_time': sl_time,
             }
-            self.state.log(
-                f"Rule 4: WITH_TREND SL ({side}) — {side}-side re-entry needs "
-                f"{cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum wait, THEN EITHER DI crossing "
-                f"{_relevant_di(side, live_snap):.1f} (benchmark) OR rolling DI rising + forming "
-                f"candle definitely {'green' if side == 'BUY' else 'red'}"
-            )
+            if sl_time is not None:
+                self.state.log(
+                    f"Rule 4: WITH_TREND SL ({side}, loss {profit:+.2f}) — {side}-side re-entry needs "
+                    f"{cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum wait, THEN EITHER DI crossing "
+                    f"{_relevant_di(side, live_snap):.1f} (benchmark) OR rolling DI rising + forming "
+                    f"candle definitely {'green' if side == 'BUY' else 'red'}"
+                )
+            else:
+                self.state.log(
+                    f"Rule 4: WITH_TREND SL ({side}, trailing profit {profit:+.2f}) — no minimum-wait "
+                    f"cooldown (closed in profit, not a loss) — {side}-side re-entry needs EITHER DI "
+                    f"crossing {_relevant_di(side, live_snap):.1f} (benchmark) OR rolling DI rising + "
+                    f"forming candle definitely {'green' if side == 'BUY' else 'red'}"
+                )
             # Rule 7's own concern (Scalp SL hit -> reversal outcome): was
             # this WITH_TREND position actually the immediate reversal of
             # an earlier scalp SL, and did it ALSO get stopped out?
@@ -945,13 +986,23 @@ class SymbolBot:
         and the slow path only needs one favorable tick too. Neither path
         checks AT ALL until cfg.RULE4_MIN_COOLDOWN_SECONDS has elapsed
         since the SL — not a full-candle wait (that was tried and removed
-        in v2.2/v2.5), just a real floor before either is even evaluated."""
+        in v2.2/v2.5), just a real floor before either is even evaluated.
+
+        CORRECTED 2026-08-28: this floor only applies when the SL closed
+        at an actual LOSS — `gate['sl_time']` is None for a profitable
+        trailing-SL close (set in _classify_and_record_close), meaning
+        this cooldown check is skipped entirely and clearing falls
+        straight through to the two original paths, exactly as it worked
+        before 2026-08-27 for that case. See that call site's own comment
+        for the full reasoning (a live XAUUSD case where a +160 profit
+        trailing exit wrongly got the full loss-cooldown treatment)."""
         gate = self.state.rule4_gate
         if not gate:
             return
-        elapsed = time.time() - gate['sl_time']
-        if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
-            return  # still inside the minimum cooldown — neither path checked yet
+        if gate['sl_time'] is not None:
+            elapsed = time.time() - gate['sl_time']
+            if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
+                return  # still inside the minimum cooldown — neither path checked yet
         side = gate['side']
         current_di = _relevant_di(side, live_snap)
         benchmark_crossed = current_di > gate['benchmark']

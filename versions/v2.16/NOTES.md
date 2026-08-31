@@ -84,4 +84,5 @@ recurs, since WSL2 here only needs to run a lightweight reverse proxy, not
 
 ## Next version
 
-(none yet)
+[v2.17](../v2.17/NOTES.md) — the cooldown above corrected to only apply
+to a losing SL close, not a profitable trailing-SL exit.

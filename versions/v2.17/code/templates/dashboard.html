@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multi-Symbol Bot Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --ink: #1a2332;
+      --muted: #5c6b7a;
+      --panel: #fffdf8;
+      --line: #d9d0c0;
+      --teal: #0d6e6e;
+      --teal-dim: #0a5555;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --green: #15803d;
+      --shadow: 0 10px 30px rgba(26, 35, 50, 0.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, #e7f2f0 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, #f7e9d8 0%, transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,253,248,0.85);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 0.15rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+    .badge {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.75rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .badge.on { color: var(--green); border-color: #86efac; background: #f0fdf4; }
+    .badge.off { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    button:active { transform: scale(0.98); }
+    .btn-start { background: var(--teal); color: #fff; }
+    .btn-start:hover { background: var(--teal-dim); }
+    .btn-stop { background: #fee2e2; color: var(--red); }
+    main {
+      padding: 1.25rem 1.75rem 2.5rem;
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(12, 1fr);
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 1rem 1.1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .panel h2 .sub { font-weight: 500; text-transform: none; letter-spacing: 0; }
+    .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.6rem;
+    }
+    .metrics.cols-6 { grid-template-columns: repeat(6, 1fr); }
+    .metrics.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .metric {
+      padding: 0.6rem 0.65rem;
+      border-radius: 12px;
+      background: #f7f3ea;
+      border: 1px solid transparent;
+    }
+    .metric .lbl {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric .val {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1rem;
+      margin-top: 0.2rem;
+      font-weight: 500;
+    }
+    .indicator-line + .indicator-line { margin-top: 0.6rem; }
+    .symbol-block { display: none; }
+    .symbol-block.active { display: block; }
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.9rem;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 0.75rem;
+    }
+    .tab-btn {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tab-btn:hover { background: #f7f3ea; }
+    .tab-btn.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+    .reason {
+      font-size: 0.9rem;
+      line-height: 1.4;
+      padding: 0.7rem 0.85rem;
+      border-radius: 12px;
+      background: #ecf6f5;
+      border-left: 4px solid var(--teal);
+    }
+    .reason-row + .reason-row { margin-top: 0.6rem; }
+    .reason-row .sym-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--teal-dim);
+      margin-bottom: 0.25rem;
+      display: block;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.4rem;
+      border-bottom: 1px solid var(--line);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .mono { font-family: "JetBrains Mono", monospace; }
+    .sym-pill {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.1rem 0.45rem;
+      border-radius: 6px;
+      background: #ecf6f5;
+      color: var(--teal-dim);
+      white-space: nowrap;
+    }
+    .log-box {
+      max-height: 340px;
+      overflow: auto;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: #334155;
+      background: #f7f3ea;
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+    }
+    .log-box div { border-bottom: 1px dashed #e5ddd0; padding: 0.2rem 0; }
+    .log-box .sym-tag { color: var(--teal-dim); font-weight: 700; }
+    .up { color: var(--green); }
+    .down { color: var(--red); }
+    .amber { color: var(--amber); }
+    .result-tag {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .result-tp { color: var(--green); background: #f0fdf4; }
+    .result-sl { color: var(--red); background: #fef2f2; }
+    .result-flip { color: var(--amber); background: #fffbeb; }
+    .reason-cell {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .pager {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.85rem;
+    }
+    .pager button {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4rem 0.85rem;
+    }
+    .pager button:hover:not(:disabled) { background: #f7f3ea; }
+    .pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pager .pageInfo {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    #histSymbolFilter {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+    }
+    .rule-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      background: #f7f3ea;
+    }
+    .rule-card + .rule-card { margin-top: 0.75rem; }
+    .rule-card h3 {
+      margin: 0 0 0.55rem;
+      font-size: 0.95rem;
+      color: var(--teal-dim);
+    }
+    .rule-card ul { margin: 0; padding-left: 1.1rem; }
+    .rule-card li { margin: 0.3rem 0; font-size: 0.86rem; line-height: 1.45; }
+    .rule-card .applies {
+      margin-top: 0.65rem;
+      padding-top: 0.55rem;
+      border-top: 1px dashed #e5ddd0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .rule-card .applies .lbl {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-right: 0.2rem;
+    }
+    @media (max-width: 900px) {
+      .span-4, .span-6, .span-8, .span-12 { grid-column: span 12; }
+      .metrics, .metrics.cols-6 { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Multi-Symbol Dual-Mode Bot</h1>
+      <p>ADX + DI + RSI · with-trend &amp; counter-scalp · live M15 · {{ symbols|length }} symbols</p>
+    </div>
+    <div class="controls">
+      <span id="connBadge" class="badge off">MT5 —</span>
+      <span id="runBadge" class="badge off">BOT —</span>
+      {% if not is_guest %}
+      <button class="btn-start" onclick="startBot()">Start</button>
+      <button class="btn-stop" onclick="stopBot()">Stop</button>
+      {% endif %}
+      {% if current_user %}<span class="badge">{{ current_user }}</span>{% endif %}
+      <button class="btn-stop" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel span-4">
+      <h2>Account <span class="sub">(shared — one MT5 login)</span></h2>
+      <div class="metrics cols-3">
+        <div class="metric"><div class="lbl">Equity</div><div class="val" id="equity">—</div></div>
+        <div class="metric"><div class="lbl">Balance</div><div class="val" id="balance">—</div></div>
+        <div class="metric"><div class="lbl">Floating</div><div class="val" id="profit">—</div></div>
+        <div class="metric"><div class="lbl">Wins</div><div class="val" id="wins">—</div></div>
+        <div class="metric"><div class="lbl">Losses</div><div class="val" id="losses">—</div></div>
+        <div class="metric"><div class="lbl">Net P/L</div><div class="val" id="net">—</div></div>
+        <div class="metric"><div class="lbl">Buy trades</div><div class="val" id="buyTrades">—</div></div>
+        <div class="metric"><div class="lbl">Sell trades</div><div class="val" id="sellTrades">—</div></div>
+        <div class="metric"><div class="lbl">Win rate</div><div class="val" id="winRate">—</div></div>
+        <div class="metric"><div class="lbl">Net deposits</div><div class="val" id="netDeposits">—</div></div>
+        <div class="metric"><div class="lbl">All-time P/L</div><div class="val" id="alltimePl">—</div></div>
+        <div class="metric"><div class="lbl">Untracked P/L</div><div class="val" id="untrackedPl">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel span-8">
+      <h2>Comparison <span class="sub">(which symbol is actually making money)</span></h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Mode</th><th>Action</th><th>Open</th>
+              <th>Trades</th><th>Wins</th><th>Losses</th><th>Win %</th>
+              <th>Net P/L</th><th>Buy</th><th>Sell</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonBody">
+            <tr><td colspan="11">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Open positions <span class="sub">(all symbols)</span></h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Ticket</th><th>Side</th><th>Vol</th><th>Open</th><th>SL</th><th>TP</th><th>Live Price</th><th>P/L</th><th>Mode</th>
+            </tr>
+          </thead>
+          <tbody id="posBody">
+            <tr><td colspan="10">None</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Live indicators <span class="sub">(forming M15 · decisions use these same values)</span></h2>
+      <div class="tab-bar" id="indicatorTabs">
+        {% for s in symbols %}
+        <button class="tab-btn{{ ' active' if loop.first else '' }}" data-sym="{{ s }}" onclick="showIndicatorTab('{{ s }}')">{{ s }}</button>
+        {% endfor %}
+      </div>
+      <div id="indicatorBlocks">
+        {% for s in symbols %}
+        <div class="symbol-block{{ ' active' if loop.first else '' }}" id="block-{{ s }}">
+          <div class="reason" id="reason-{{ s }}" style="margin-bottom:0.9rem">Waiting for first tick…</div>
+          <div class="indicator-line metrics">
+            <div class="metric"><div class="lbl">Mode</div><div class="val" id="mode-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Action</div><div class="val" id="action-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Attempt</div><div class="val" id="attempt-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Updated</div><div class="val" id="updated-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Tick Time</div><div class="val" id="tickTime-{{ s }}">—</div></div>
+          </div>
+          <div class="indicator-line metrics">
+            <div class="metric"><div class="lbl">Live Bid</div><div class="val" id="bid-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Live Ask</div><div class="val" id="ask-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Live Mid</div><div class="val" id="mid-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Single Bar Close</div><div class="val" id="singleClose-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Spread</div><div class="val" id="spread-{{ s }}">—</div></div>
+          </div>
+          <div class="indicator-line metrics">
+            <div class="metric"><div class="lbl">50 EMA</div><div class="val" id="ema50-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">200 EMA</div><div class="val" id="ema200-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Trend</div><div class="val" id="trend-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">Condition</div><div class="val" id="condition-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">ADX</div><div class="val" id="adx-{{ s }}">—</div></div>
+          </div>
+          <div class="indicator-line metrics cols-6">
+            <div class="metric"><div class="lbl">+DI</div><div class="val" id="dip-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">-DI</div><div class="val" id="dim-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">RSI</div><div class="val" id="rsi-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">ATR</div><div class="val" id="atr-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">ATR Mean</div><div class="val" id="atrMean-{{ s }}">—</div></div>
+            <div class="metric"><div class="lbl">ATR Strong/Weak</div><div class="val" id="atrStrong-{{ s }}">—</div></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Decision log <span class="sub">(all symbols, merged)</span></h2>
+      <div class="log-box" id="logs"></div>
+    </section>
+
+    <section class="panel span-12">
+      <h2 style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+        <span>Trade history <span class="sub" id="histScopeLabel">(closed positions — all symbols — why opened, why closed)</span></span>
+        <select id="histSymbolFilter" onchange="onHistFilterChange()">
+          <option value="">All symbols</option>
+          {% for s in symbols %}
+          <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+      </h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Closed</th><th>Opened</th><th>Side</th><th>Mode</th><th>Open</th><th>SL</th><th>TP</th><th>P/L</th><th>Result</th><th>Why it opened</th>
+            </tr>
+          </thead>
+          <tbody id="histBody">
+            <tr><td colspan="11">No closed trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="histNewer" onclick="changeHistPage(-1)">&laquo; Newer</button>
+        <span id="histPageInfo" class="pageInfo">Page 1</span>
+        <button id="histOlder" onclick="changeHistPage(1)">Older &raquo;</button>
+      </div>
+    </section>
+
+    {% if not is_guest %}
+    <section class="panel span-12">
+      <h2>Rule coverage <span class="sub">(computed fresh from live config.py on every page load — a checkmark here is never hand-typed)</span></h2>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Rule</th>
+              {% for s in symbols %}<th style="text-align:center">{{ s }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for rule in rules %}
+            <tr>
+              <td>{{ rule.name }}</td>
+              {% for s in symbols %}
+              <td class="mono {{ 'up' if rule.applies[s] else 'down' }}" style="text-align:center">{{ '✓' if rule.applies[s] else '—' }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel span-12">
+      <h2>Rules <span class="sub">(numbered rules are dictated one at a time and LOCKED — not modified without explicit permission; unnumbered cards are pre-existing description not yet individually confirmed in this form)</span></h2>
+      {% for rule in process_rules %}
+      <div class="rule-card">
+        <h3>{% if rule.number %}Rule {{ rule.number }}: {% endif %}{{ rule.title }}</h3>
+        <ul>
+          {% for c in rule.checks %}
+          <li>{{ c }}</li>
+          {% endfor %}
+        </ul>
+        <div class="applies">
+          <span class="lbl">Applies to:</span>
+          {% for s in symbols %}
+          {% if rule.applies.get(s) %}<span class="sym-pill">{{ s }}</span>{% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </main>
+
+  <script>
+    const SYMBOLS = {{ symbols|tojson }};
+    let symbolDigits = {};  // sym -> real price precision (2 for indices/gold, 5 GBPUSD, 3 USDJPY, ...)
+    function digitsFor(sym) { return symbolDigits[sym] ?? 2; }
+
+    function n(v, d=2) {
+      // Was guessing "small number -> forex -> show 5 decimals", but that
+      // caught EVERY small number (P/L, win rate, floating profit, ...),
+      // not just forex prices — e.g. floating -3.57 showed as "-3.57000".
+      // Always show exactly `d` decimals (2 by default) unless the caller
+      // explicitly asks for more.
+      if (v === undefined || v === null || Number.isNaN(v)) return "—";
+      return Number(v).toFixed(d);
+    }
+    function setText(id, val, cls) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val;
+      el.className = "val" + (cls ? " " + cls : "");
+    }
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+    }
+
+    // Session expired (30 min idle, see config.py SESSION_LIFETIME_MINUTES)
+    // -> every /api/* call gets a plain 401 JSON body, not a redirect (a
+    // redirect response to fetch() isn't something the page could act on
+    // sensibly on its own). This wrapper is the ONE place that reacts to
+    // that 401 by sending the browser to /login — every fetch() call below
+    // goes through it instead of calling fetch() directly, 2026-08-16.
+    async function apiFetch(url, opts) {
+      const res = await fetch(url, opts);
+      if (res.status === 401) { window.location.href = "/login"; throw new Error("session expired"); }
+      return res;
+    }
+    function logout() {
+      fetch("/logout", { method: "POST" }).finally(() => { window.location.href = "/login"; });
+    }
+
+    async function refresh() {
+      try {
+        const res = await apiFetch("/api/status?_=" + Date.now(), { cache: "no-store" });
+        const s = await res.json();
+        const conn = document.getElementById("connBadge");
+        conn.textContent = s.connected ? "MT5 connected" : "MT5 offline";
+        conn.className = "badge " + (s.connected ? "on" : "off");
+
+        for (const sym of SYMBOLS) {
+          const d = s.symbols && s.symbols[sym];
+          if (d && d.digits) symbolDigits[sym] = d.digits;
+        }
+
+        const sym0 = SYMBOLS[0] && s.symbols[SYMBOLS[0]];
+        const run = document.getElementById("runBadge");
+        const running = sym0 ? sym0.running : false;
+        run.textContent = running ? "BOT running" : "BOT stopped";
+        run.className = "badge " + (running ? "on" : "off");
+
+        const a = s.account || {};
+        setText("equity", n(a.equity));
+        setText("balance", n(a.balance));
+        setText("profit", n(a.profit), (a.profit || 0) >= 0 ? "up" : "down");
+        const st = s.stats || {};
+        setText("wins", st.wins ?? "—");
+        setText("losses", st.losses ?? "—");
+        setText("net", n(st.profit), (st.profit || 0) >= 0 ? "up" : "down");
+        setText("buyTrades", st.buy_trades ?? "—");
+        setText("sellTrades", st.sell_trades ?? "—");
+        setText("winRate", st.win_rate !== undefined ? n(st.win_rate, 1) + "%" : "—");
+
+        const rc = s.reconcile || {};
+        setText("netDeposits", rc.net_deposits !== undefined ? n(rc.net_deposits) : "—");
+        setText("alltimePl", rc.alltime_trade_pl !== undefined ? n(rc.alltime_trade_pl) : "—",
+                 (rc.alltime_trade_pl || 0) >= 0 ? "up" : "down");
+        setText("untrackedPl", rc.untracked_pl !== undefined ? n(rc.untracked_pl) : "—",
+                 (rc.untracked_pl || 0) >= 0 ? "up" : "down");
+
+        renderComparison(s.symbols || {});
+        renderIndicators(s.symbols || {});
+        renderPositions(s.symbols || {});
+        renderLogs(s.symbols || {});
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderComparison(symbols) {
+      const body = document.getElementById("comparisonBody");
+      const rows = SYMBOLS.map(sym => {
+        const d = symbols[sym] || {};
+        const st = d.stats || {};
+        const profit = st.profit || 0;
+        return { sym, d, st, profit };
+      }).sort((a, b) => b.profit - a.profit);  // most profitable first
+      body.innerHTML = rows.map(({ sym, d, st, profit }) => `
+        <tr>
+          <td><span class="sym-pill">${sym}</span></td>
+          <td class="amber">${d.mode || "—"}</td>
+          <td>${(d.last_signal && d.last_signal.action) || "—"}</td>
+          <td class="mono">${(d.positions || []).length}</td>
+          <td class="mono">${st.total ?? 0}</td>
+          <td class="mono up">${st.wins ?? 0}</td>
+          <td class="mono down">${st.losses ?? 0}</td>
+          <td class="mono">${st.win_rate !== undefined ? n(st.win_rate, 1) + "%" : "—"}</td>
+          <td class="mono ${profit >= 0 ? 'up' : 'down'}">${n(profit)}</td>
+          <td class="mono">${st.buy_trades ?? 0}</td>
+          <td class="mono">${st.sell_trades ?? 0}</td>
+        </tr>`).join("") || '<tr><td colspan="11">No data yet</td></tr>';
+    }
+
+    function showIndicatorTab(sym) {
+      document.querySelectorAll('#indicatorTabs .tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sym === sym);
+      });
+      document.querySelectorAll('#indicatorBlocks .symbol-block').forEach(block => {
+        block.classList.toggle('active', block.id === `block-${sym}`);
+      });
+    }
+
+    function renderIndicators(symbols) {
+      for (const sym of SYMBOLS) {
+        const d = symbols[sym] || {};
+        const reasonEl = document.getElementById(`reason-${sym}`);
+        if (reasonEl) reasonEl.textContent = d.last_reason || "Waiting for first tick…";
+        setText(`mode-${sym}`, d.mode || "—", "amber");
+        setText(`action-${sym}`, (d.last_signal && d.last_signal.action) || "—");
+        setText(`attempt-${sym}`, d.attempt ?? "—");
+        setText(`updated-${sym}`, d.updated_at || "—");
+
+        // Price-scale fields use this symbol's own decimal precision
+        // (2 for indices/gold, 5 for GBPUSD, 3 for USDJPY, ...) — a flat 2
+        // decimals showed GBPUSD's ATR (~0.00045) as a useless "0.00".
+        const dg = d.digits || 2;
+        const live = d.live || {};
+        setText(`tickTime-${sym}`, live.time || "—");
+        setText(`bid-${sym}`, n(live.bid, dg));
+        setText(`ask-${sym}`, n(live.ask, dg));
+        setText(`mid-${sym}`, n(live.mid, dg));
+        setText(`spread-${sym}`, n(live.spread, dg));
+
+        const sn = d.snapshot || {};
+        setText(`singleClose-${sym}`, n(sn.close, dg));
+        setText(`ema50-${sym}`, n(sn.ema50, dg));
+        setText(`ema200-${sym}`, n(sn.ema200, dg));
+        const trendCls = sn.trend === "TRENDING_UP" ? "up" : sn.trend === "TRENDING_DOWN" ? "down" : "";
+        setText(`trend-${sym}`, sn.trend || "—", trendCls);
+        setText(`condition-${sym}`, sn.condition || "—");
+        setText(`adx-${sym}`, n(sn.adx));
+        setText(`dip-${sym}`, n(sn.di_plus), "up");
+        setText(`dim-${sym}`, n(sn.di_minus), "down");
+        setText(`rsi-${sym}`, n(sn.rsi));
+        setText(`atr-${sym}`, n(sn.atr, dg));
+        setText(`atrMean-${sym}`, n(sn.atr_mean, dg));
+        const strongWeak = sn.atr_strong === true ? "STRONG" : sn.atr_weak === true ? "WEAK" : "—";
+        setText(`atrStrong-${sym}`, strongWeak, sn.atr_strong === true ? "up" : sn.atr_weak === true ? "down" : "");
+      }
+    }
+
+    function renderPositions(symbols) {
+      const body = document.getElementById("posBody");
+      const rows = [];
+      for (const sym of SYMBOLS) {
+        const positions = (symbols[sym] && symbols[sym].positions) || [];
+        const live = (symbols[sym] && symbols[sym].live) || {};
+        for (const p of positions) rows.push({ sym, p, live });
+      }
+      if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="10">None</td></tr>';
+        return;
+      }
+      body.innerHTML = rows.map(({ sym, p, live }) => {
+        const dg = digitsFor(sym);
+        // Live price relevant to THIS position: a BUY closes at bid, a SELL closes at ask.
+        const livePrice = p.type === 'BUY' ? live.bid : live.ask;
+        return `
+        <tr>
+          <td><span class="sym-pill">${sym}</span></td>
+          <td class="mono">${p.ticket}</td>
+          <td class="${p.type === 'BUY' ? 'up' : 'down'}">${p.type}</td>
+          <td class="mono">${p.volume}</td>
+          <td class="mono">${n(p.price_open, dg)}</td>
+          <td class="mono">${n(p.sl, dg)}</td>
+          <td class="mono">${n(p.tp, dg)}</td>
+          <td class="mono">${n(livePrice, dg)}</td>
+          <td class="mono ${p.profit >= 0 ? 'up' : 'down'}">${n(p.profit, 2)}</td>
+          <td>${p.mode || ''}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function renderLogs(symbols) {
+      const logs = document.getElementById("logs");
+      let lines = [];
+      for (const sym of SYMBOLS) {
+        const symLogs = (symbols[sym] && symbols[sym].logs) || [];
+        for (const l of symLogs) lines.push({ sym, l });
+      }
+      // Each line starts "HH:MM:SS | msg" — lexicographic sort on that prefix works for same-day ordering.
+      lines.sort((a, b) => b.l.localeCompare(a.l));
+      lines = lines.slice(0, 150);
+      logs.innerHTML = lines.map(({ sym, l }) =>
+        `<div><span class="sym-tag">[${sym}]</span> ${esc(l)}</div>`
+      ).join("") || "<div>No logs yet</div>";
+    }
+
+    // Trade history: paginated separately from the 2s status poll — max 50
+    // trades per page (server-enforced), combined across all symbols with a
+    // Symbol column, persisted on disk (survives bot/process restarts).
+    let histPage = 1;
+    let histTotalPages = 1;
+    let histSymbol = "";  // "" = all symbols, else e.g. "USA30" — see onHistFilterChange()
+    function renderTradeHistory(hist) {
+      const histBody = document.getElementById("histBody");
+      if (!hist.length) {
+        histBody.innerHTML = '<tr><td colspan="11">No closed trades yet</td></tr>';
+        return;
+      }
+      const resultCls = { TP: "result-tp", SL: "result-sl", FLIP: "result-flip" };
+      histBody.innerHTML = hist.map(h => {
+        const dg = digitsFor(h.symbol);
+        return `
+        <tr>
+          <td><span class="sym-pill">${h.symbol || "?"}</span></td>
+          <td class="mono">${h.closed_at || "—"}</td>
+          <td class="mono">${h.opened_at || "—"}</td>
+          <td class="${h.side === 'BUY' ? 'up' : 'down'}">${h.side || ""}</td>
+          <td>${h.mode || ""}</td>
+          <td class="mono">${n(h.price_open, dg)}</td>
+          <td class="mono">${n(h.sl, dg)}</td>
+          <td class="mono">${n(h.tp, dg)}</td>
+          <td class="mono ${(h.profit || 0) >= 0 ? 'up' : 'down'}">${n(h.profit)}</td>
+          <td><span class="result-tag ${resultCls[h.close_reason] || ''}">${h.close_reason || '—'}</span></td>
+          <td class="reason-cell" title="${esc(h.open_reason)}">${esc(h.open_reason) || '—'}</td>
+        </tr>`;
+      }).join("");
+    }
+    async function loadTradeHistory(page = histPage) {
+      try {
+        const symQuery = histSymbol ? `&symbol=${encodeURIComponent(histSymbol)}` : "";
+        const res = await apiFetch(`/api/trades?page=${page}${symQuery}&_=` + Date.now(), { cache: "no-store" });
+        const d = await res.json();
+        histPage = d.page || 1;
+        histTotalPages = d.total_pages || 1;
+        renderTradeHistory(d.trades || []);
+        document.getElementById("histPageInfo").textContent =
+          `Page ${histPage} of ${histTotalPages} (${d.total ?? 0} trades)`;
+        document.getElementById("histNewer").disabled = histPage <= 1;
+        document.getElementById("histOlder").disabled = histPage >= histTotalPages;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    function changeHistPage(delta) {
+      const next = histPage + delta;
+      if (next < 1 || next > histTotalPages) return;
+      loadTradeHistory(next);
+    }
+    function onHistFilterChange() {
+      histSymbol = document.getElementById("histSymbolFilter").value;
+      const label = document.getElementById("histScopeLabel");
+      label.textContent = histSymbol
+        ? `(closed positions — ${histSymbol} only — why opened, why closed)`
+        : "(closed positions — all symbols — why opened, why closed)";
+      loadTradeHistory(1);  // filter changed — always restart from the newest page
+    }
+
+    async function startBot() {
+      await apiFetch("/api/start", { method: "POST", cache: "no-store" });
+      refresh();
+    }
+    async function stopBot() {
+      await apiFetch("/api/stop", { method: "POST", cache: "no-store" });
+      refresh();
+    }
+    refresh();
+    loadTradeHistory();
+    setInterval(refresh, 2000);
+    setInterval(() => { if (histPage === 1) loadTradeHistory(1); }, 4000);
+  </script>
+</body>
+</html>

@@ -47,11 +47,35 @@ explain a different rule's mechanics even in passing, and don't add
 adjacent scope/caveats about related-but-different mechanisms unless
 asked. If something adjacent seems relevant, ask about it separately.
 
+## XAUUSD is frozen — excluded from all future rule/logic tuning (2026-08-29)
+
+**XAUUSD is performing well and is not to be touched by any future
+rule/logic change, experiment, or tuning pass — full stop, until the user
+explicitly says otherwise.** User's own words: "xauusd acha perform ker
+raha hai us may kisi change ki zaroorat nahi mazeed... sub se pehle
+xauusd ko us k tamam rules k sath isolate kerdo... ab xauusd baqi sub k
+rules follow nahi kare" — XAUUSD keeps trading normally (it stays in a
+live/running position, nothing stops) with its CURRENT rule
+values/behavior exactly as they are now; it just no longer inherits
+future changes the way the other 5 symbols do. This **inverts point 1
+below specifically for XAUUSD**: from now on, any rule/logic change,
+unless the user names XAUUSD explicitly, applies to USA500/USA100/USA30/
+GBPUSD/USDJPY only — XAUUSD is skipped by default, not included by
+default. This is a standing exclusion, not a one-off — don't ask again
+each time; just apply new changes to the other 5 and leave XAUUSD's
+config/logic untouched unless told otherwise. REASON this was asked now:
+the user is about to start a round of experiments/testing specifically
+aimed at bringing the currently loss-making symbols to profit, and
+doesn't want that testing to have any chance of perturbing XAUUSD's
+already-working setup.
+
 ## Standing process for every rule/value change
 
 1. Applies equally to all 6 symbols unless the user scopes it to specific
    ones — only pre-existing per-symbol numeric config (SL/TP points, ATR
-   floors, trailing values) stays symbol-specific.
+   floors, trailing values) stays symbol-specific. **Exception, standing
+   as of 2026-08-29: XAUUSD is excluded from this default entirely — see
+   above.**
 2. Numbered rules get a card on the dashboard (`templates/dashboard.html`
    + `app.py._build_rules()`) and, if the rule actually triggers/confirms
    an entry (not a pure blocking gate like Rule 1), get tagged into that

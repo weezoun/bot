@@ -6,6 +6,23 @@ MT5_PASSWORD = "Prison3R!"
 # MT5_SERVER = "HFMarketsGlobal-Live16"
 MT5_SERVER = "HFMarketsGlobal-Demo"
 
+# Explicit terminal path, 2026-08-31, requested directly (user asked to
+# CONFIRM each bot opens its own correct terminal — checking surfaced a
+# real gap, not just a formality). bot_runner.connect_mt5() used to call
+# mt5.initialize() with no `path` at all — harmless with only one
+# terminal installed, but genuinely ambiguous now that a second MT5
+# terminal exists on this machine for the new live-account copy
+# (c:\bot - Live): the MetaTrader5 package's own docs say which terminal
+# an unqualified initialize() attaches to is undefined once more than
+# one exists/is running, and it can attach to an ALREADY-RUNNING
+# terminal regardless of which one it is — meaning this bot's demo
+# credentials could have ended up logging into the LIVE terminal's
+# window (or vice versa) with no visible error, since any terminal can
+# log into any broker's account. Pinning this path removes the ambiguity
+# entirely — this bot only ever launches/attaches to its own dedicated
+# terminal.
+MT5_TERMINAL_PATH = r"C:\Program Files\MetaTrader 5\terminal64.exe"
+
 TIMEFRAME_BARS = 1000
 POLL_SECONDS = 2
 RSI_PERIOD = 14  # shared across symbols — it's a ratio-based indicator, not price-scale dependent
@@ -327,8 +344,8 @@ USA500 = SymbolConfig(
     adx_min=15, rsi_scalp_sell_max=65, rsi_scalp_buy_min=35,
     rsi_with_trend_buy_max=80, rsi_with_trend_sell_min=20,
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
-    scalp_tp_points=5.5, scalp_sl_atr_mult=0.8, scalp_sl_floor=3.0,
-    trend_sl_atr_mult=0.75, trend_tp_points=5.5, min_atr=2.0,
+    scalp_sl_atr_mult=0.8, scalp_sl_floor=3.0,
+    trend_sl_atr_mult=0.75, min_atr=2.0,
     # Rule 2 (WITH_TREND) SL cut 5.00 -> 2.50, 2026-08-16, requested
     # directly after comparing per-rule stats against the 2026-08-15
     # benchmark: "usa500... eventually yeh loss may hein... usa500 ka sl
@@ -342,7 +359,29 @@ USA500 = SymbolConfig(
     # doesn't change from this alone, only the cost of being wrong.
     fixed_sl_points=2.50,       # Rule 2 (WITH_TREND) — cut from 5.00
     scalp_fixed_sl_points=2.50, # Rule 5 (scalp) only — cut (unchanged this round)
-    reversal_fixed_sl_points=5.00,  # Rule 7 (reversal) — held independently, unchanged
+    # Rule 7 (REVERSE) SL cut 5.00 -> 2.50, 2026-08-29 — requested directly
+    # as part of the first round of testing on the currently-losing
+    # symbols (XAUUSD frozen as of v2.18; USA500/USA100/USA30 are the
+    # first targets). REASON: user's own words, "USA500 reversal rule 7 k
+    # liye sl ko 2.5 kerdo" — no further reasoning given beyond the
+    # direct instruction; this is an experimental value to observe, not a
+    # data-driven conclusion yet. IMPACT: smaller loss per Rule 7
+    # stop-out (was double Rule 2/5's SL, now matches them exactly) — to
+    # be checked against real stats before deciding whether to keep it.
+    reversal_fixed_sl_points=2.50,
+    # TP unified to 2.50 across ALL THREE rules (Rule 2/5/7), 2026-08-29,
+    # requested directly alongside the Rule 7 SL cut above: "with_trend/
+    # Scalp/Reverse ka tp 2.5 kerdo." Previously 5.5 for Rule 2 (via
+    # trend_tp_points) and Rule 5/7 (via scalp_tp_points — Rule 7's TP has
+    # always followed Rule 5's, see strategy._sl_tp_reversal). REASON:
+    # same testing-round instruction as the SL cut above, no separate
+    # reasoning given — experimental, to be checked against real stats.
+    # IMPACT: much tighter 1:1 R:R (TP now equals the new WITH_TREND/
+    # SCALP SL of 2.50, and the new Rule 7 SL of 2.50 too) — a smaller,
+    # faster-secured win per trade, at the cost of needing a higher win
+    # rate to stay net positive than the old 5.5 TP required.
+    trend_tp_points=2.50,   # Rule 2 (WITH_TREND) — cut from 5.5
+    scalp_tp_points=2.50,   # Rule 5 (scalp) AND Rule 7 (reversal, follows automatically) — cut from 5.5
     # Fixed-point CONTINUOUS trail REMOVED, 2026-08-15 — superseded by the
     # unified %-of-TP continuous trail now used on all 6 symbols (see
     # bot_runner.trail_all_positions()'s generic branch, activate=25%/
@@ -707,8 +746,8 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     adx_min=15, rsi_scalp_sell_max=65, rsi_scalp_buy_min=35,
     rsi_with_trend_buy_max=80, rsi_with_trend_sell_min=20,
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
-    scalp_tp_points=30.0, scalp_sl_atr_mult=0.8, scalp_sl_floor=22.0,
-    trend_sl_atr_mult=0.75, trend_tp_points=30.0, min_atr=2.0,
+    scalp_sl_atr_mult=0.8, scalp_sl_floor=22.0,
+    trend_sl_atr_mult=0.75, min_atr=2.0,
     # Rule 2 (WITH_TREND) SL — REVERTED BACK TO 30, 2026-08-25. Full
     # history: 30 (original) -> 2026-08-21 tried 15 -> tried 50 -> settled
     # back at 15 (see v2.13). Then ran live at 15 for ~4 days (2026-08-21
@@ -733,8 +772,32 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     # with a positive track record. If reconsidering again, that's 3 data
     # points already spent; look for a different lever (e.g. Rule 4's own
     # gate) before re-trying a 4th SL number on this same rule.
-    fixed_sl_points=30.0,       # Rule 2 (WITH_TREND) — reverted to 30, 2026-08-25 (15 and 50 both tried, neither helped)
-    scalp_fixed_sl_points=15.0, # Rule 5 (scalp) — cut, 2026-08-14; Rule 7 (reversal) follows automatically (no independent override set)
+    # SUPERSEDED 2026-08-29, CORRECTED same day — SL/TP unified to a flat
+    # 15 (not 25 — a first pass at this got the number wrong, corrected
+    # immediately, same session) across ALL THREE rules (Rule 2/5/7) and
+    # BOTH SL and TP, requested directly as part of the first round of
+    # testing on the currently-losing symbols (XAUUSD frozen as of v2.18;
+    # USA500/USA100/USA30 are the first targets). REASON: user's own
+    # words, "usa100 ka sl tp 15 per set kerna tha" — no further reasoning
+    # given beyond the direct instruction; this is an experimental value
+    # to observe, not a data-driven conclusion yet (the 30-reversion
+    # history above, and its own NOTE about 15/30/50 already being spent,
+    # was about Rule 2's SL alone — this new instruction moves the
+    # goalposts to a uniform 15 for everything, values-only, not a
+    # re-litigation of that history — 15 for Rule 2 specifically HAS been
+    # tried before with "no faida" per that history, so worth watching
+    # closely rather than assuming this round behaves differently).
+    # IMPACT: 1:1 R:R now on all three rules (TP == SL == 15, was TP=30/
+    # SL=30 on Rule 2, TP=30/SL=15 on Rule 5, and Rule 7 followed Rule 5).
+    # Rule 2's SL is now much smaller (30->15, cheaper stop-outs but needs
+    # a higher win rate, and this exact value already showed "no faida"
+    # once before per the history above); Rule 5/7's SL unchanged (15);
+    # all three rules' TP shrinks (30->15, wins secured faster/smaller).
+    # To be checked against real stats before deciding whether to keep it.
+    fixed_sl_points=15.0,       # Rule 2 (WITH_TREND) — 30 -> 15
+    scalp_fixed_sl_points=15.0, # Rule 5 (scalp) — unchanged at 15; Rule 7 (reversal) follows automatically (no independent override set)
+    trend_tp_points=15.0,       # Rule 2 (WITH_TREND) — 30 -> 15
+    scalp_tp_points=15.0,       # Rule 5 (scalp) AND Rule 7 (reversal, follows automatically) — 30 -> 15
 )
 
 USA30 = SymbolConfig(  # mean M15 ATR ~53.7
@@ -806,11 +869,37 @@ USA30 = SymbolConfig(  # mean M15 ATR ~53.7
     adx_min=15, rsi_scalp_sell_max=65, rsi_scalp_buy_min=35,
     rsi_with_trend_buy_max=80, rsi_with_trend_sell_min=20,
     adx_strong_trend=25, rsi_with_trend_buy_max_strong=90, rsi_with_trend_sell_min_strong=10,
-    scalp_tp_points=50.0, scalp_sl_atr_mult=0.8, scalp_sl_floor=20.0,
-    trend_sl_atr_mult=0.75, trend_tp_points=50.0, min_atr=2.0,
-    fixed_sl_points=25.0,        # Rule 2 (WITH_TREND) — cut from 50
-    scalp_fixed_sl_points=50.0,  # Rule 5 (scalp) — explicitly HELD at 50, independent
-    reversal_fixed_sl_points=25.0,  # Rule 7 (reversal) — independent, cut to match Rule 2
+    scalp_sl_atr_mult=0.8, scalp_sl_floor=20.0,
+    trend_sl_atr_mult=0.75, min_atr=2.0,
+    # SUPERSEDED 2026-08-29 — SL/TP unified to a flat 25 across ALL THREE
+    # rules (Rule 2/5/7) and BOTH SL and TP, same instruction/testing round
+    # as USA100's identical change (see that symbol's own comment — XAUUSD
+    # frozen as of v2.18, USA500/USA100/USA30 are the first testing
+    # targets). REASON: user's own words, "USA100 aur USA30 per tamam
+    # sl/tp 25 per set kerdo" — no further reasoning given, experimental.
+    # Rule 2's SL (25) and Rule 7's SL (25) were ALREADY at 25 from the
+    # 2026-08-14 brainstorm above — only Rule 5's SL (50->25) and all
+    # three rules' TP (50->25) actually change here. IMPACT: Rule 5 loses
+    # the "deliberately held wider, best-performing rule" status it had
+    # since 2026-08-14 (was explicitly kept at 50 while Rule 2/7 got cut,
+    # because Rule 5 was this symbol's best performer at the time) — now
+    # matches Rule 2/7 exactly. All three rules now 1:1 R:R at 25/25.
+    #
+    # SL FURTHER CUT 2026-08-29, same day — requested directly, SL only
+    # this time (TP left at 25): "usa30 k sl tamam 15 per kerdo." All
+    # three rules' SL now 15; TP stays 25 (no longer 1:1 — now a 25 TP
+    # against a 15 SL, roughly 1.67:1 reward:risk). REASON: no further
+    # reasoning given beyond the direct instruction — experimental,
+    # same testing round as the 25 change above, not yet checked against
+    # real stats. IMPACT: cheaper stop-outs across the board (25->15 on
+    # all three rules, Rule 5 cut a second time in one day: 50->25->15),
+    # but needs a higher win rate per trade than the prior 1:1 shape did,
+    # since TP (25) is now wider than SL (15).
+    fixed_sl_points=15.0,        # Rule 2 (WITH_TREND) — 25 -> 15
+    scalp_fixed_sl_points=15.0,  # Rule 5 (scalp) — 25 -> 15 (50 -> 25 -> 15 today)
+    reversal_fixed_sl_points=15.0,  # Rule 7 (reversal) — 25 -> 15
+    trend_tp_points=25.0,        # Rule 2 (WITH_TREND) — unchanged at 25
+    scalp_tp_points=25.0,        # Rule 5 (scalp) AND Rule 7 (reversal, follows automatically) — unchanged at 25
 )
 
 # Six-symbol addition (Coffee/Copper/Cocoa/Cotton/Palladium/Platinum),

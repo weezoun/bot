@@ -85,4 +85,8 @@ pattern is fully preserved, unchanged.
 
 ## Next version
 
-(none yet)
+[v2.21](../v2.21/NOTES.md) — XAUUSD-only Rule 7 (Scalp SL hit) redesign:
+the immediate, zero-confirmation reversal is replaced with a Rule-4-
+shaped gate (cooldown + DI/candle confirmation) for both a loss- and a
+profit-closed scalp SL alike, per real data showing both outcomes
+net-negative for Gold on the reversal leg.

@@ -315,16 +315,18 @@ def _rsi_sell_floor(snap: Snapshot, cfg) -> float:
 
 
 def evaluate_flip(live_snap: Snapshot, closed_snap: Snapshot, has_buy: bool, has_sell: bool, cfg,
-                   rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None) -> Optional[Signal]:
+                   rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None,
+                   rule7_gate: Optional[dict] = None) -> Optional[Signal]:
     """Close opposite scalps and reverse into with-trend when momentum flips.
 
     FLIP has its own separate confirmation criteria (DI flip/strong + RSI,
     not Rule 2's last-closed-candle-color checks). It DOES still need to
-    respect rule3_gate/rule4_gate, though — a WITH_TREND close on a side
-    should block FLIP into that same side too, same as it blocks a fresh
-    Rule 2 entry (originally found and fixed 2026-08-11: FLIP used to
-    skip this entirely, letting a WITH_TREND TP reopen same-candle via
-    this path even though the normal entry route was correctly blocked).
+    respect rule3_gate/rule4_gate (and, XAUUSD only, rule7_gate), though —
+    a WITH_TREND close on a side should block FLIP into that same side
+    too, same as it blocks a fresh Rule 2 entry (originally found and
+    fixed 2026-08-11: FLIP used to skip this entirely, letting a
+    WITH_TREND TP reopen same-candle via this path even though the normal
+    entry route was correctly blocked).
 
     Regression found and fixed 2026-08-12: when Rule 3/Rule 4 were split
     out of the old shared momentum_gate, this function was left checking
@@ -341,7 +343,8 @@ def evaluate_flip(live_snap: Snapshot, closed_snap: Snapshot, has_buy: bool, has
         di_strong = live_snap.di_plus > live_snap.di_minus and live_snap.di_plus > live_snap.prev_di_plus
         rsi_up = live_snap.rsi > live_snap.prev_rsi and live_snap.rsi >= 45
         adx_ok = live_snap.adx >= cfg.ADX_MIN
-        blocked = (rule3_gate and rule3_gate.get('side') == 'BUY') or (rule4_gate and rule4_gate.get('side') == 'BUY')
+        blocked = (rule3_gate and rule3_gate.get('side') == 'BUY') or (rule4_gate and rule4_gate.get('side') == 'BUY') \
+            or (rule7_gate and rule7_gate.get('side') == 'BUY')
         if adx_ok and (di_flip or di_strong) and rsi_up and not blocked:
             sl, tp = _sl_tp_trend('BUY', live_snap.close, live_snap.atr, cfg)
             return Signal(
@@ -358,7 +361,8 @@ def evaluate_flip(live_snap: Snapshot, closed_snap: Snapshot, has_buy: bool, has
         di_strong = live_snap.di_minus > live_snap.di_plus and live_snap.di_minus > live_snap.prev_di_minus
         rsi_down = live_snap.rsi < live_snap.prev_rsi and live_snap.rsi <= 55
         adx_ok = live_snap.adx >= cfg.ADX_MIN
-        blocked = (rule3_gate and rule3_gate.get('side') == 'SELL') or (rule4_gate and rule4_gate.get('side') == 'SELL')
+        blocked = (rule3_gate and rule3_gate.get('side') == 'SELL') or (rule4_gate and rule4_gate.get('side') == 'SELL') \
+            or (rule7_gate and rule7_gate.get('side') == 'SELL')
         if adx_ok and (di_flip or di_strong) and rsi_down and not blocked:
             sl, tp = _sl_tp_trend('SELL', live_snap.close, live_snap.atr, cfg)
             return Signal(
@@ -445,13 +449,15 @@ def _momentum_recovered(side: str, live_snap: Snapshot, closed_snap: Snapshot,
 
 def _skip_trend_buy_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
                             rule3_gate: Optional[dict] = None,
-                            rule4_gate: Optional[dict] = None) -> str:
-    """rule3_gate/rule4_gate: only ever READ here (side-match presence
-    check) — the actual clearing conditions for each are computed
+                            rule4_gate: Optional[dict] = None,
+                            rule7_gate: Optional[dict] = None) -> str:
+    """rule3_gate/rule4_gate/rule7_gate: only ever READ here (side-match
+    presence check) — the actual clearing conditions for each are computed
     entirely inside their own dedicated bot_runner methods
-    (_check_rule3_gate / _check_rule4_gate), never here. This function
-    must never branch on gate internals beyond "is it currently set for
-    this side" — that's the isolation boundary (2026-08-12)."""
+    (_check_rule3_gate / _check_rule4_gate / _check_rule7_reversal_gate),
+    never here. This function must never branch on gate internals beyond
+    "is it currently set for this side" — that's the isolation boundary
+    (2026-08-12, extended to rule7_gate 2026-09-02)."""
     parts = []
     if snap.adx < cfg.ADX_MIN:
         parts.append(f"ADX({snap.adx:.1f}) < {cfg.ADX_MIN}")
@@ -468,12 +474,15 @@ def _skip_trend_buy_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
         parts.append("Rule 3 gate active (blocked after a WITH_TREND TP)")
     if rule4_gate and rule4_gate.get('side') == 'BUY':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
+    if rule7_gate and rule7_gate.get('side') == 'BUY':
+        parts.append("Rule 7 reversal gate active (blocked after a LOSS-triggered scalp SL, XAUUSD only)")
     return "; ".join(parts) if parts else "trend BUY conditions OK"
 
 
 def _skip_trend_sell_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
                              rule3_gate: Optional[dict] = None,
-                             rule4_gate: Optional[dict] = None) -> str:
+                             rule4_gate: Optional[dict] = None,
+                             rule7_gate: Optional[dict] = None) -> str:
     """See _skip_trend_buy_reason's docstring — same isolation boundary."""
     parts = []
     if snap.adx < cfg.ADX_MIN:
@@ -491,11 +500,14 @@ def _skip_trend_sell_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
         parts.append("Rule 3 gate active (blocked after a WITH_TREND TP)")
     if rule4_gate and rule4_gate.get('side') == 'SELL':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
+    if rule7_gate and rule7_gate.get('side') == 'SELL':
+        parts.append("Rule 7 reversal gate active (blocked after a LOSS-triggered scalp SL, XAUUSD only)")
     return "; ".join(parts) if parts else "trend SELL conditions OK"
 
 
 def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bool = True,
-                    rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None) -> Signal:
+                    rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None,
+                    rule7_gate: Optional[dict] = None) -> Signal:
     """New entry when flat. Prefer counter-scalp when short-term opposes big trend.
 
     cfg: config.SymbolConfig — this symbol's thresholds.
@@ -518,6 +530,14 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
     here. This is a deliberate isolation boundary (2026-08-12, explicit
     instruction): editing either gate's clearing logic must never require
     touching this function, and vice versa.
+
+    rule7_gate: {'side': 'BUY'|'SELL', 'benchmark': ..., 'sl_time': ...} or
+    None — XAUUSD only (cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN), set by
+    bot_runner's _gate_scalp_reversal_after_loss right after a LOSS-
+    triggered scalp SL, in place of the old immediate `_reverse_scalp()`.
+    Same simple presence/side-check pattern as rule3_gate/rule4_gate,
+    same isolation boundary — clearing logic lives entirely in
+    _check_rule7_reversal_gate, never here (2026-09-02).
     """
     if snap.trend == 'NEUTRAL':
         return Signal('HOLD', 'NONE', 'SKIP: Trend NEUTRAL — wait for EMA cross')
@@ -593,6 +613,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and not _bearish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'BUY')  # presence check only
             and not (rule4_gate and rule4_gate.get('side') == 'BUY')  # presence check only
+            and not (rule7_gate and rule7_gate.get('side') == 'BUY')  # presence check only, XAUUSD only
         )
         if trend_ok:
             sl, tp = _sl_tp_trend('BUY', snap.close, snap.atr, cfg)
@@ -610,7 +631,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
         return Signal(
             'HOLD', 'NONE',
             f"SKIP UP: scalp SELL blocked [{skip}] | "
-            f"trend BUY blocked [{_skip_trend_buy_reason(snap, closed_snap, cfg, rule3_gate, rule4_gate)}]"
+            f"trend BUY blocked [{_skip_trend_buy_reason(snap, closed_snap, cfg, rule3_gate, rule4_gate, rule7_gate)}]"
         )
 
     # --- TRENDING_DOWN ---
@@ -652,6 +673,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and not _bullish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'SELL')  # presence check only
             and not (rule4_gate and rule4_gate.get('side') == 'SELL')  # presence check only
+            and not (rule7_gate and rule7_gate.get('side') == 'SELL')  # presence check only, XAUUSD only
         )
         if trend_ok:
             sl, tp = _sl_tp_trend('SELL', snap.close, snap.atr, cfg)
@@ -669,7 +691,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
         return Signal(
             'HOLD', 'NONE',
             f"SKIP DOWN: scalp BUY blocked [{skip}] | "
-            f"trend SELL blocked [{_skip_trend_sell_reason(snap, closed_snap, cfg, rule3_gate, rule4_gate)}]"
+            f"trend SELL blocked [{_skip_trend_sell_reason(snap, closed_snap, cfg, rule3_gate, rule4_gate, rule7_gate)}]"
         )
 
     return Signal('HOLD', 'NONE', 'SKIP: No signal')
@@ -677,18 +699,20 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
 
 def decide(snap: Snapshot, closed_snap: Snapshot, cfg, has_buy: bool, has_sell: bool,
            already_entered_this_bar: bool, scalp_allowed: bool = True,
-           rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None) -> Signal:
+           rule3_gate: Optional[dict] = None, rule4_gate: Optional[dict] = None,
+           rule7_gate: Optional[dict] = None) -> Signal:
     """Live-bar decisions. already_entered_this_bar only blocks a second entry, not reason updates.
 
     closed_snap: last FULLY CLOSED M15 bar — passed to evaluate_entry for
     its last-closed-candle-color check.
 
-    rule3_gate / rule4_gate: see evaluate_entry()'s docstring — simple
-    presence-check state read only, isolation boundary (2026-08-12).
-    Passed through to evaluate_flip() too (regression fix, 2026-08-12 —
-    see its docstring): FLIP has its own separate confirmation criteria,
-    but still respects these same gates, same as a fresh Rule 2 entry."""
-    flip = evaluate_flip(snap, closed_snap, has_buy, has_sell, cfg, rule3_gate, rule4_gate)
+    rule3_gate / rule4_gate / rule7_gate: see evaluate_entry()'s docstring
+    — simple presence-check state read only, isolation boundary
+    (2026-08-12, extended to rule7_gate 2026-09-02). Passed through to
+    evaluate_flip() too (regression fix, 2026-08-12 — see its docstring):
+    FLIP has its own separate confirmation criteria, but still respects
+    these same gates, same as a fresh Rule 2 entry."""
+    flip = evaluate_flip(snap, closed_snap, has_buy, has_sell, cfg, rule3_gate, rule4_gate, rule7_gate)
     if flip:
         if already_entered_this_bar and not (has_buy or has_sell):
             # rare: flipped and flat but already entered earlier this bar
@@ -698,13 +722,13 @@ def decide(snap: Snapshot, closed_snap: Snapshot, cfg, has_buy: bool, has_sell: 
 
     if has_buy or has_sell:
         side = "BUY" if has_buy else "SELL"
-        entry = evaluate_entry(snap, closed_snap, cfg, scalp_allowed, rule3_gate, rule4_gate)
+        entry = evaluate_entry(snap, closed_snap, cfg, scalp_allowed, rule3_gate, rule4_gate, rule7_gate)
         return Signal(
             'MANAGE', entry.mode if entry.action in ('BUY', 'SELL') else 'NONE',
             f"Position open ({side}) — manage only | live setup: {entry.reason}"
         )
 
-    entry = evaluate_entry(snap, closed_snap, cfg, scalp_allowed, rule3_gate, rule4_gate)
+    entry = evaluate_entry(snap, closed_snap, cfg, scalp_allowed, rule3_gate, rule4_gate, rule7_gate)
     if already_entered_this_bar:
         return Signal(
             'MANAGE', entry.mode if entry.action in ('BUY', 'SELL') else 'NONE',

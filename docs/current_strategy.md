@@ -543,6 +543,67 @@ the reversal's own SL) where the old behavior would have produced only
 one. `False` (default) for every other symbol — the trigger site itself
 is gated on this flag, zero effect elsewhere.
 
+**Rule 7 variant, indices only — profit-triggered scalp SL skips the
+reversal (`cfg.SCALP_SL_PROFIT_SKIP_REVERSAL`, 2026-09-01).** USA500/
+USA100/USA30 only. Real data (all-time, immediate <5s scalp-SL→reversal
+pairs) showed the opposite pairing from XAUUSD: for these three, a
+LOSS-triggered immediate reversal is net-POSITIVE (+3.00/+34.53/+81.10)
+while a PROFIT-triggered one is net-NEGATIVE (-8.36/-16.70/-147.70). When
+a scalp's trailing SL closes it while still in PROFIT, `_reverse_scalp()`
+is skipped entirely and scalp re-arms instead via the exact same
+mechanism Rule 6's own TP outcome uses (`scalp_continuation_gate` /
+`_check_rule6_gate`, unchanged, not duplicated — new thin function
+`_rearm_scalp_after_profit_sl` exists only for accurate log text). A
+LOSS-closed scalp SL on these three is completely unaffected — still the
+original immediate reversal above. `False` (default, no effect) for
+XAUUSD and GBPUSD/USDJPY.
+
+**Rule 7 variant, XAUUSD only — loss-triggered scalp SL replaced with a
+Rule-4-shaped gate (`cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN`, 2026-09-02).**
+Real data showed the LOSS-triggered case above (net-positive for the
+indices) is catastrophic specifically for Gold: 12 immediate pairs, only
+8% reversal win rate, -1,689.00 net on the reversal leg alone (-3,988.00
+combined with the scalp's own loss). User's own words, after being walked
+through exactly how Rule 4 works (it never forces a trade — it only
+BLOCKS a fresh same-side entry until cooldown + DI/candle confirmation
+clears, then the bot's own normal signal logic decides): *"sl loss hit k
+liye same rule4 wali strategy ko copy karenge."*
+
+For XAUUSD, a scalp SL closing in LOSS no longer calls `_reverse_scalp()`
+at all. `_gate_scalp_reversal_after_loss` instead sets TWO independent,
+fully isolated gates in parallel:
+1. `rule7_reversal_gate` — blocks a fresh WITH_TREND entry on the
+   REVERSAL (opposite) side only. Own dedicated field + clearing function
+   (`_check_rule7_reversal_gate`), zero shared state with `rule4_gate` —
+   but deliberately the SAME shape, copied directly: the
+   `RULE4_MIN_COOLDOWN_SECONDS` floor, then EITHER that side's DI
+   crossing its own benchmark (captured at the SL) OR rolling DI +
+   forming candle definitely that side's color. Threaded through
+   `strategy.evaluate_entry`/`evaluate_flip`/`decide` as a new `rule7_gate`
+   parameter, same trivial presence-check pattern as `rule3_gate`/
+   `rule4_gate` — read-only there, clearing logic lives entirely in
+   `_check_rule7_reversal_gate`.
+2. `scalp_continuation_gate` — re-arms scalp on the ORIGINAL (failed)
+   side, reusing Rule 6's own mechanism verbatim (same call shape as the
+   indices' `_rearm_scalp_after_profit_sl` above) — answers the user's own
+   follow-up concern directly ("wapis scalping ki taraf aa jaye to trade
+   legi kaise") that a reversal-only gate would otherwise leave the
+   original direction stuck disarmed until a full DI-regime flip.
+
+Neither gate forces anything — whichever side's normal signal genuinely
+confirms first is what actually trades. A resulting WITH_TREND entry on
+the reversal side is therefore a normal Rule 2 entry (not tagged
+"Rule 7" in `open_reason` — nothing was forced), and the reversal's own
+tight sizing (`REVERSAL_FIXED_SL_POINTS`) and one-per-DI-regime cap
+(`scalp_reversal_used`) no longer apply to this path, since no forced
+entry happens at all anymore. Verified with a standalone isolation test
+(cooldown floor, both clearing paths, and side-scoping all behave
+independently of `rule3_gate`/`rule4_gate`) before deploying — no MT5
+connection made. **PROFIT-triggered scalp SL on XAUUSD is a separate,
+not-yet-decided discussion — this flag does not touch that case; still
+the ordinary immediate reversal for now.** `False` (default, no effect)
+for every other symbol.
+
 ---
 
 Two systems per symbol — WITH_TREND and COUNTER_SCALP (scalp) — both driven

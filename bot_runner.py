@@ -195,6 +195,17 @@ class BotState:
         # WITH_TREND SL hit (locked, same isolation instruction) — its own
         # isolated gate + dedicated clearing method (_check_rule4_gate).
         self.rule4_gate: Optional[dict] = None  # {'side','bar_time'} — WITH_TREND SL hit
+        # NEW mechanism, 2026-09-02, XAUUSD only (cfg.SCALP_SL_LOSS_REVERSAL_
+        # COOLDOWN) — set by _gate_scalp_reversal_after_loss in place of the
+        # old immediate _reverse_scalp() call, cleared entirely by its own
+        # dedicated _check_rule7_reversal_gate. Same shape as rule4_gate
+        # (cooldown floor + benchmark-cross-OR-rolling-DI+candle) but its
+        # own separate field/function, zero shared state with rule4_gate —
+        # blocks a fresh WITH_TREND entry on the REVERSAL (opposite) side
+        # only; the ORIGINAL (failed) side is handled independently via
+        # scalp_continuation_gate below (Rule 6's own mechanism, reused
+        # unchanged, not touched by this gate at all).
+        self.rule7_reversal_gate: Optional[dict] = None  # {'side','benchmark','sl_time'} — reversal side blocked after a LOSS-triggered scalp SL
         self.scalp_reversal_di = None  # {'side','di_at_sl'} — scalp's DI at the moment _reverse_scalp
         # fired; consumed once the reversal trade itself closes (see _classify_and_record_close)
         self.scalp_rearm_gate = None  # {'side','benchmark','rise_streak','last_bar_time'} — active after
@@ -672,6 +683,15 @@ class SymbolBot:
             # reversal below entirely; a loss-closed one is unaffected.
             if self.cfg.SCALP_SL_PROFIT_SKIP_REVERSAL and profit >= 0:
                 self._rearm_scalp_after_profit_sl(side, live_snap)
+            # XAUUSD only (see cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN's own
+            # comment, config.py, for the full REASON/IMPACT) — a
+            # LOSS-closed scalp SL no longer fires the old immediate,
+            # zero-confirmation reversal; gated instead, same shape as
+            # Rule 4. Profit-triggered case on XAUUSD is untouched by this
+            # (still falls through to _reverse_scalp() below, unchanged —
+            # a separate, not-yet-decided discussion).
+            elif self.cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN and profit < 0:
+                self._gate_scalp_reversal_after_loss(side, live_snap)
             else:
                 self._reverse_scalp(side, live_snap)
         elif cfg.SL_COOLDOWN_UNTIL_NEXT_CANDLE:
@@ -872,6 +892,58 @@ class SymbolBot:
             f"(same re-arm as Rule 6's own TP outcome, same candle allowed once confirmed)"
         )
 
+    def _gate_scalp_reversal_after_loss(self, closed_side: str, live_snap):
+        """XAUUSD only (cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN), added
+        2026-09-02 — see that flag's own comment in config.py for the full
+        REASON/IMPACT (real data: Gold's LOSS-triggered immediate scalp-SL
+        reversal was 8% win / -3,988 combined, unlike the indices where
+        this same case is net-positive).
+
+        Replaces the old immediate, zero-confirmation `_reverse_scalp()`
+        call for this one case (loss-triggered scalp SL, XAUUSD only) with
+        TWO independent, isolated gates set in parallel — mirrors exactly
+        how Rule 4 itself works (confirmed directly with the user first:
+        Rule 4 does NOT force a trade, it only BLOCKS a fresh same-side
+        entry until cooldown + DI/candle confirmation clears, then the
+        bot's own normal signal logic decides from there):
+
+        1. `rule7_reversal_gate` — blocks a fresh WITH_TREND entry on the
+           REVERSAL (opposite) side only, same shape as rule4_gate (own
+           dedicated field + _check_rule7_reversal_gate, zero shared state
+           with rule4_gate itself).
+        2. `scalp_continuation_gate` — re-arms scalp on the ORIGINAL
+           (failed) side, reusing Rule 6's own existing mechanism
+           verbatim, UNCHANGED (same call shape as
+           _rearm_scalp_after_profit_sl above) — this is what lets the
+           original scalp direction re-enter on its own if the market goes
+           back that way, directly answering the user's own follow-up
+           concern ("wapis scalping ki taraf aa jaye to trade legi kaise")
+           that a reversal-only gate would otherwise leave the original
+           direction stuck disarmed until a full DI-regime flip.
+
+        Neither gate FORCES anything — both only lift a block; whichever
+        side's normal signal genuinely confirms first is what actually
+        opens a trade, exactly like Rule 4."""
+        opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
+        self.state.rule7_reversal_gate = {
+            'side': opposite,
+            'benchmark': _relevant_di(opposite, live_snap),
+            'sl_time': time.time(),
+        }
+        self.state.scalp_continuation_gate = {'side': closed_side, 'bar_time': live_snap.bar_time}
+        label = '-DI' if opposite == 'SELL' else '+DI'
+        candle_word = 'green' if opposite == 'BUY' else 'red'
+        orig_label = '-DI' if closed_side == 'SELL' else '+DI'
+        orig_candle_word = 'green' if closed_side == 'BUY' else 'red'
+        self.state.log(
+            f"Rule 7 (XAUUSD): Scalp SL ({closed_side}, loss) — no immediate reversal. "
+            f"{opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, THEN "
+            f"EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR "
+            f"rolling {label} rising + forming candle definitely {candle_word}; {closed_side}-side "
+            f"independently re-arms via ADX/RSI/ATR/{orig_label} rising/forming candle definitely "
+            f"{orig_candle_word} (same as Rule 6's own TP outcome)"
+        )
+
     def _check_rule6_gate(self, live_snap):
         """Rule 6 (Scalp TP hit) — self-contained clearing check. Fully
         independent implementation — zero shared code/state with any
@@ -1054,6 +1126,52 @@ class SymbolBot:
             reason = f"DI {current_di:.1f} crossed benchmark {gate['benchmark']:.1f}" if benchmark_crossed \
                 else f"rolling DI rising + forming candle definitely {'green' if side == 'BUY' else 'red'}"
             self.state.log(f"Rule 4 gate cleared ({side}) — {reason}")
+
+    def _check_rule7_reversal_gate(self, live_snap):
+        """XAUUSD only (cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN), 2026-09-02 —
+        self-contained clearing check for rule7_reversal_gate (set in
+        _gate_scalp_reversal_after_loss). Fully independent implementation
+        — zero shared code/state with _check_rule4_gate or any other gate,
+        even though the shape is deliberately identical (copied directly,
+        per the user's own explicit instruction: "sl loss hit k liye same
+        rule4 wali strategy ko copy karenge").
+
+        Same cooldown floor (cfg.RULE4_MIN_COOLDOWN_SECONDS, read-only
+        constant reuse — not shared state) applies unconditionally here
+        (unlike Rule 4, this gate is only ever set on an actual LOSS, so
+        there's no profit-close case to skip the floor for). Clears via
+        EITHER of two independent paths, whichever comes first:
+        1. FAST: the gated (reversal) side's DI crosses back above
+           `gate['benchmark']` (captured at the moment of the scalp SL).
+        2. SLOWER: that side's DI above the immediately preceding candle
+           (rolling) AND the currently forming candle DEFINITELY that
+           side's color.
+
+        Clearing here ONLY lifts the block (`rule7_reversal_gate = None`)
+        — exactly like Rule 4, no trade is forced. If a genuine WITH_TREND
+        signal exists on that side once unblocked, evaluate_entry's own
+        normal checks decide from there; if not, nothing happens until
+        they do. The ORIGINAL (failed) scalp side is not this gate's
+        concern at all — see scalp_continuation_gate / _check_rule6_gate
+        for that, set independently in the same call that set this gate."""
+        gate = self.state.rule7_reversal_gate
+        if not gate:
+            return
+        elapsed = time.time() - gate['sl_time']
+        if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
+            return  # still inside the minimum cooldown — neither path checked yet
+        side = gate['side']
+        current_di = _relevant_di(side, live_snap)
+        benchmark_crossed = current_di > gate['benchmark']
+        if side == 'BUY':
+            slow_path = live_snap.di_plus > live_snap.prev_di_plus and live_snap.close > live_snap.open
+        else:
+            slow_path = live_snap.di_minus > live_snap.prev_di_minus and live_snap.close < live_snap.open
+        if benchmark_crossed or slow_path:
+            self.state.rule7_reversal_gate = None
+            reason = f"DI {current_di:.1f} crossed benchmark {gate['benchmark']:.1f}" if benchmark_crossed \
+                else f"rolling DI rising + forming candle definitely {'green' if side == 'BUY' else 'red'}"
+            self.state.log(f"Rule 7 reversal gate cleared ({side}) — {reason}")
 
     def _reverse_scalp(self, closed_side: str, live_snap):
         """Rule 7 (Scalp SL hit) — a COUNTER_SCALP just got stopped out;
@@ -1720,12 +1838,14 @@ class SymbolBot:
             self.state.scalp_continuation_gate = None  # regime flip already re-armed it too
             self.state.scalp_no_reversal_gate = None  # ditto
             self.state.trend_reversal_used = False  # new mechanism's own cap, same regime-flip reset
+            self.state.rule7_reversal_gate = None  # stale benchmark, regime moved on — XAUUSD only
 
         self._check_scalp_rearm(live_snap)
         self._check_rule6_gate(live_snap)
         self._check_scalp_no_reversal_gate(live_snap, closed_snap)
         self._check_rule3_gate(live_snap)
         self._check_rule4_gate(live_snap)
+        self._check_rule7_reversal_gate(live_snap)
 
         # Only block a second ENTRY on the same forming M15 — reasons always from live
         already_entered = (
@@ -1733,7 +1853,8 @@ class SymbolBot:
             and live_snap.bar_time == self.state.last_bar_time
         )
         sig = decide(live_snap, closed_snap, self.cfg, has_buy, has_sell, already_entered,
-                     self.state.scalp_armed, self.state.rule3_gate, self.state.rule4_gate)
+                     self.state.scalp_armed, self.state.rule3_gate, self.state.rule4_gate,
+                     self.state.rule7_reversal_gate)
 
         if startup_wait and sig.action in ('BUY', 'SELL', 'CLOSE_SELLS_THEN_BUY', 'CLOSE_BUYS_THEN_SELL'):
             # Rule 1 — block the order-placing action itself but keep showing
@@ -1787,6 +1908,7 @@ class SymbolBot:
                 self.state.rule4_gate = None  # ditto
                 self.state.scalp_continuation_gate = None  # ditto
                 self.state.scalp_no_reversal_gate = None  # ditto
+                self.state.rule7_reversal_gate = None  # ditto — XAUUSD only, no-op elsewhere
                 if sig.mode == 'COUNTER_SCALP':
                     self.state.scalp_armed = False
 

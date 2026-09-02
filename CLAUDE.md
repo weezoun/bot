@@ -94,11 +94,88 @@ already-working setup.
    nameable, diagnosable rule-tuning problem (it usually does — with a
    few hundred trades total, an ML model risks overfitting to noise and
    erodes this bot's fully-explainable-by-name design).
-5. Verify logic changes with a standalone test before/instead of manually
+5. **This entire project, `c:\bot`, is the DEMO bot** (`MT5_SERVER =
+   "HFMarketsGlobal-Demo"`, account 49825877) — restarting it, modifying
+   its code, and (per the standing exception below) restarting its own
+   `pythonw.exe` process after a deployed change are all normal, expected
+   parts of working here.
+
+   **There is a SEPARATE, real "live bot" — a different system, on a
+   different MT5 account/terminal, that this session does NOT own or
+   maintain — completely outside this project's scope, full stop.**
+   Added 2026-09-02 after a real incident: while restarting the demo bot
+   across several config changes, `terminal64.exe` processes were killed
+   as part of routine "clean up duplicate processes" cleanup, WITHOUT
+   verifying each one's origin first — the user has their own separate
+   watchdog/auto-restart system for the live bot running on this same
+   machine, and there was a genuine, unresolved risk of having killed a
+   process belonging to THAT system by mistake, not just the demo bot's
+   own. User's own words: "tum kisi bhi surat live bot aur us se related
+   terminal ya code ya process ko change nahi karo ge, woh tumhare scope
+   se bahar ki cheez hai, us se door raho... demo bot ki change ko revert
+   nahi karna" — demo-bot changes (this project's own config/rule/code
+   work) stay exactly as made, only the live bot is the hard boundary.
+
+   **Standing rule going forward**: never kill, restart, inspect, or
+   otherwise touch ANY `terminal64.exe` process (or any other process)
+   without first confirming its parent-process chain traces back to THIS
+   project's own `TradingBotAutoStart` scheduled task / `pythonw.exe`
+   (e.g. via `Get-CimInstance Win32_Process -Filter "ProcessId=..."` and
+   walking `ParentProcessId`, or via `Get-NetTCPConnection -LocalPort
+   5050` to find the port-5050 owner first). When restarting the demo
+   bot, restart ONLY its own confirmed `pythonw.exe` — do NOT kill
+   `terminal64.exe` as part of that routine at all; `connect_mt5()`
+   already reuses an existing terminal or reconnects gracefully on its
+   own (v2.14's auto-reconnect), so killing it was never necessary in the
+   first place and only adds risk. If literally any doubt exists about
+   whether a process belongs to this project, leave it alone and ask.
+
+   **Incident confirmed, 2026-09-02**: investigation (via `c:\bot -
+   Live\logs\watchdog.log`, `task_out.log`/`task_err.log`, and
+   `Get-CimInstance Win32_Process`/`ParentProcessId` tracing — no MT5
+   connection made, per the rule below) found the live bot's own
+   `terminal64.exe` ("MetaTrader 5 - Live Terminal") WAS killed during
+   today's demo-bot duplicate-process cleanups: the verification used at
+   the time only checked "does this process hold port 5050" (the demo
+   bot's port), which the live bot's terminal never holds either, so it
+   looked like an orphaned duplicate under that flawed check and got
+   killed by mistake. Confirmed via `c:\bot\logs\watchdog.log`: the
+   user's own pre-existing `BotWatchdog` scheduled task (built 2026-08-31,
+   `tools/bot_watchdog.ps1` — polls both bots' dashboards independently,
+   restarts via each bot's own scheduled task on failure) detected the
+   live bot down at 19:18:00 today and auto-restarted it via
+   `TradingBotLiveAutoStart`; `task_out.log` confirms it reconnected to
+   its terminal and resumed its loop by 19:18:38, and it has been serving
+   normal traffic since. **No manual revert was needed or performed** —
+   the live bot's own pre-existing watchdog self-healed it before this was
+   even reported; this session made no code/config change inside `c:\bot
+   - Live` at any point (only ever edited files under `c:\bot`) and took
+   no further action on the live bot process once confirmed healthy, per
+   the standing rule above. A second, unrelated near-miss the same day: a
+   duplicate-process pair was misidentified as belonging to the demo bot
+   (mistraced to `TradingBotAutoStart`) and a kill was attempted — it was
+   in fact the live bot's own legitimate process, and the kill was blocked
+   by Claude Code's own permission classifier before it ran.
+
+   Verify logic changes with a standalone test before/instead of manually
    launching the bot — the user runs the live server themselves. **The
    one standing exception**: the user's keyboard has been unreliable, so
-   restarting the live server after a deployed change is expected of
-   Claude now, without being asked each time.
+   restarting the demo bot's own `pythonw.exe` after a deployed change is
+   expected of Claude now, without being asked each time — this is about
+   THIS project's own process, never the separate live bot above.
+
+   **Separately, this restart exception does NOT extend to connecting
+   into the demo bot's own MT5 session** (added 2026-09-01, user's own
+   words: "tum live bot per koi kaam ya changes nahi karo ge") — never
+   run an ad-hoc script that calls `mt5.initialize()`/`mt5.login()` (e.g.
+   to pull live prices or reconstruct historical indicator values
+   directly from MT5) while the demo bot is running; that connection
+   belongs to the running bot process alone. If a task seems to need this
+   — even if the user asks for it directly, possibly
+   by mistake — say so and don't proceed; remind them of this standing
+   rule rather than silently connecting. Investigate using
+   `trade_history.db`, the live dashboard's own `/api/status` (in-memory
+   logs), or standalone tests against static/synthetic data instead.
 6. After any code change: `python -m py_compile` (or `ast.parse`) on
    every touched file before considering it done — this project has hit
    real syntax errors (duplicate keyword args, etc.) that a compile check

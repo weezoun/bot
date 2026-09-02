@@ -666,7 +666,14 @@ class SymbolBot:
             return
 
         if mode == 'COUNTER_SCALP':
-            self._reverse_scalp(side, live_snap)
+            # "Indices" group only (see cfg.SCALP_SL_PROFIT_SKIP_REVERSAL's
+            # own comment, config.py, for the full REASON/IMPACT) — a
+            # profit-closed scalp SL (trailing) skips the immediate
+            # reversal below entirely; a loss-closed one is unaffected.
+            if self.cfg.SCALP_SL_PROFIT_SKIP_REVERSAL and profit >= 0:
+                self._rearm_scalp_after_profit_sl(side, live_snap)
+            else:
+                self._reverse_scalp(side, live_snap)
         elif cfg.SL_COOLDOWN_UNTIL_NEXT_CANDLE:
             # Rule 4 (WITH_TREND SL) — its own isolated gate, cleared
             # entirely by _check_rule4_gate, never by this function.
@@ -831,6 +838,38 @@ class SymbolBot:
             f"Rule 6: Scalp TP ({side}) — waiting for ADX/RSI/ATR/{label} rising/forming candle "
             f"definitely {candle_word} to all confirm before re-arming another {side} scalp "
             f"(same candle allowed once confirmed)"
+        )
+
+    def _rearm_scalp_after_profit_sl(self, side: str, live_snap):
+        """"Indices" group only (USA500/USA100/USA30, cfg.SCALP_SL_PROFIT_
+        SKIP_REVERSAL), added 2026-09-01 — real data showed PROFIT-
+        triggered immediate reversals net-negative on all three
+        (-8.36/-16.70/-147.70), while LOSS-triggered ones were net-
+        POSITIVE (+3.00/+34.53/+81.10) — the opposite pairing from
+        XAUUSD, where BOTH cases are negative (XAUUSD is frozen per
+        v2.18 anyway — untouched; GBPUSD/USDJPY explicitly get no change
+        this round either — this flag defaults False everywhere else).
+
+        A scalp position whose TRAILING SL closes it while still in
+        PROFIT now skips Rule 7's immediate/zero-confirmation reversal
+        entirely and re-arms scalp EXACTLY the way an ordinary Rule 6 TP
+        outcome does — same state (scalp_continuation_gate), same
+        clearing function (_check_rule6_gate), completely UNCHANGED and
+        NOT duplicated, per direct instruction ("scalp re-arm ka system
+        wohi rahega jo existing hai, mein us ko change karne ka nahi keh
+        raha"). This function exists only so the log text is accurate
+        (this was an SL close, not an actual TP) — a LOSS-triggered scalp
+        SL is completely unaffected, still the existing, unchanged
+        _reverse_scalp() immediate reversal (see the call site in
+        _classify_and_record_close)."""
+        self.state.scalp_continuation_gate = {'side': side, 'bar_time': live_snap.bar_time}
+        label = '-DI' if side == 'SELL' else '+DI'
+        candle_word = 'green' if side == 'BUY' else 'red'
+        self.state.log(
+            f"Scalp SL ({side}, closed in profit via trailing) — indices-only: no immediate "
+            f"reversal, waiting for ADX/RSI/ATR/{label} rising/forming candle definitely "
+            f"{candle_word} to all confirm before re-arming another {side} scalp "
+            f"(same re-arm as Rule 6's own TP outcome, same candle allowed once confirmed)"
         )
 
     def _check_rule6_gate(self, live_snap):

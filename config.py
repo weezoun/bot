@@ -128,6 +128,7 @@ class SymbolConfig:
         trail_fixed_minlock_points=None,
         trail_step_pct=None, trail_increment_pct=None,
         trend_sl_reversal_enabled=False,
+        scalp_sl_profit_skip_reversal=False,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -282,6 +283,23 @@ class SymbolConfig:
         # symbol — no effect on them at all (the trigger site itself is
         # gated on this flag).
         self.TREND_SL_REVERSAL_ENABLED = trend_sl_reversal_enabled
+        # SCALP_SL_PROFIT_SKIP_REVERSAL, 2026-09-01 — added for the
+        # "indices" group (USA500/USA100/USA30) only, per real data: when
+        # a COUNTER_SCALP position's trailing SL closes it WHILE STILL IN
+        # PROFIT, Rule 7's normal immediate/zero-confirmation reversal was
+        # net-negative on all three (-8.36 / -16.70 / -147.70), while a
+        # LOSS-triggered reversal was net-POSITIVE on all three (+3.00 /
+        # +34.53 / +81.10) — the opposite pairing from XAUUSD, where BOTH
+        # cases are negative (so XAUUSD — frozen anyway, v2.18 — gets no
+        # change here; this flag stays False/default for it and for
+        # GBPUSD/USDJPY, per direct instruction that currency pairs get no
+        # change in this round). When True: a profit-closed scalp SL skips
+        # `_reverse_scalp()` entirely and re-arms scalp the same way Rule
+        # 6's own TP outcome does (`scalp_continuation_gate`, unchanged,
+        # NOT duplicated) — a LOSS-closed scalp SL is completely
+        # unaffected, still the existing immediate reversal. False
+        # (default) for every other symbol — no effect on them at all.
+        self.SCALP_SL_PROFIT_SKIP_REVERSAL = scalp_sl_profit_skip_reversal
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR
@@ -390,6 +408,10 @@ USA500 = SymbolConfig(
     # for reference: activate_points=1.00, lockback_points=1.00,
     # minlock_points=0.00 (the exact worked example this used to match:
     # open 7800, +1pt->SL 7800, +2pt->SL 7801).
+    # "Indices" group (with USA100/USA30) — see SymbolConfig's own comment
+    # on this flag for the full REASON/IMPACT (real data: profit-triggered
+    # immediate reversal net-negative, loss-triggered net-positive).
+    scalp_sl_profit_skip_reversal=True,
 )
 
 # All other symbols below: same thresholds as USA500 (ADX/RSI bands are
@@ -798,6 +820,10 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     scalp_fixed_sl_points=15.0, # Rule 5 (scalp) — unchanged at 15; Rule 7 (reversal) follows automatically (no independent override set)
     trend_tp_points=15.0,       # Rule 2 (WITH_TREND) — 30 -> 15
     scalp_tp_points=15.0,       # Rule 5 (scalp) AND Rule 7 (reversal, follows automatically) — 30 -> 15
+    # "Indices" group (with USA500/USA30) — see SymbolConfig's own comment
+    # on this flag for the full REASON/IMPACT (real data: profit-triggered
+    # immediate reversal net-negative, loss-triggered net-positive).
+    scalp_sl_profit_skip_reversal=True,
 )
 
 USA30 = SymbolConfig(  # mean M15 ATR ~53.7
@@ -900,6 +926,10 @@ USA30 = SymbolConfig(  # mean M15 ATR ~53.7
     reversal_fixed_sl_points=15.0,  # Rule 7 (reversal) — 25 -> 15
     trend_tp_points=25.0,        # Rule 2 (WITH_TREND) — unchanged at 25
     scalp_tp_points=25.0,        # Rule 5 (scalp) AND Rule 7 (reversal, follows automatically) — unchanged at 25
+    # "Indices" group (with USA500/USA100) — see SymbolConfig's own comment
+    # on this flag for the full REASON/IMPACT (real data: profit-triggered
+    # immediate reversal net-negative, loss-triggered net-positive).
+    scalp_sl_profit_skip_reversal=True,
 )
 
 # Six-symbol addition (Coffee/Copper/Cocoa/Cotton/Palladium/Platinum),

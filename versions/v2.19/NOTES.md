@@ -94,4 +94,7 @@ restart: single process, `bot.lock` held, all 6 symbols `connected: true`.
 
 ## Next version
 
-(none yet)
+[v2.20](../v2.20/NOTES.md) — symbols formally split into 3 groups
+(Gold/Indices/Currency pairs); Indices (USA500/USA100/USA30) get a new
+mechanism: a profit-closed scalp SL skips Rule 7's immediate reversal
+entirely, based on real per-symbol data.

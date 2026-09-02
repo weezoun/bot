@@ -475,7 +475,7 @@ def _skip_trend_buy_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     if rule4_gate and rule4_gate.get('side') == 'BUY':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
     if rule7_gate and rule7_gate.get('side') == 'BUY':
-        parts.append("Rule 7 reversal gate active (blocked after a LOSS-triggered scalp SL, XAUUSD only)")
+        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, XAUUSD only)")
     return "; ".join(parts) if parts else "trend BUY conditions OK"
 
 
@@ -501,7 +501,7 @@ def _skip_trend_sell_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     if rule4_gate and rule4_gate.get('side') == 'SELL':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
     if rule7_gate and rule7_gate.get('side') == 'SELL':
-        parts.append("Rule 7 reversal gate active (blocked after a LOSS-triggered scalp SL, XAUUSD only)")
+        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, XAUUSD only)")
     return "; ".join(parts) if parts else "trend SELL conditions OK"
 
 
@@ -532,11 +532,11 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
     touching this function, and vice versa.
 
     rule7_gate: {'side': 'BUY'|'SELL', 'benchmark': ..., 'sl_time': ...} or
-    None — XAUUSD only (cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN), set by
-    bot_runner's _gate_scalp_reversal_after_loss right after a LOSS-
-    triggered scalp SL, in place of the old immediate `_reverse_scalp()`.
-    Same simple presence/side-check pattern as rule3_gate/rule4_gate,
-    same isolation boundary — clearing logic lives entirely in
+    None — XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), set by
+    bot_runner's _gate_scalp_reversal right after ANY scalp SL (profit or
+    loss alike), in place of the old immediate `_reverse_scalp()`. Same
+    simple presence/side-check pattern as rule3_gate/rule4_gate, same
+    isolation boundary — clearing logic lives entirely in
     _check_rule7_reversal_gate, never here (2026-09-02).
     """
     if snap.trend == 'NEUTRAL':

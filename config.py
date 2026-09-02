@@ -129,7 +129,7 @@ class SymbolConfig:
         trail_step_pct=None, trail_increment_pct=None,
         trend_sl_reversal_enabled=False,
         scalp_sl_profit_skip_reversal=False,
-        scalp_sl_loss_reversal_cooldown=False,
+        scalp_sl_reversal_cooldown=False,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -301,51 +301,61 @@ class SymbolConfig:
         # unaffected, still the existing immediate reversal. False
         # (default) for every other symbol — no effect on them at all.
         self.SCALP_SL_PROFIT_SKIP_REVERSAL = scalp_sl_profit_skip_reversal
-        # SCALP_SL_LOSS_REVERSAL_COOLDOWN, 2026-09-02 — XAUUSD ONLY (named
+        # SCALP_SL_REVERSAL_COOLDOWN, 2026-09-02 — XAUUSD ONLY (named
         # explicitly by the user, per the standing XAUUSD-freeze exception:
         # "xauusd... us may kisi change ki zaroorat nahi mazeed" only
         # blocks changes the user does NOT name — this one, they named
         # directly). REASON: real data pulled before deciding showed
-        # Rule 7's immediate/zero-confirmation reversal is disastrous for
-        # Gold specifically on a LOSS-triggered scalp SL — 12x, only 8%
-        # win, net -1,689.00 on the reversal leg alone (-3,988.00 combined
-        # with the scalp's own loss) — far worse than the SAME loss-
-        # triggered case on the indices (net-POSITIVE there, why they were
-        # deliberately left unchanged in SCALP_SL_PROFIT_SKIP_REVERSAL
-        # above). User's own words: "sl loss hit k liye same rule4 wali
-        # strategy ko copy karenge" — after being walked through exactly
-        # how Rule 4 works (it does NOT force a trade — it only BLOCKS a
-        # fresh same-side entry until a cooldown + DI/candle confirmation
-        # clears, then lets the bot's own normal signal logic decide from
-        # there, same as everything else). When True: a scalp SL closing
-        # in LOSS no longer calls `_reverse_scalp()` (no forced, unconfirmed
-        # reversal) — instead `_gate_scalp_reversal_after_loss` sets TWO
-        # independent, isolated gates in parallel: (1) `rule7_reversal_gate`
-        # — blocks a fresh WITH_TREND entry on the REVERSAL (opposite) side
-        # only, using the exact same shape as Rule 4's own gate (own
-        # dedicated field + `_check_rule7_reversal_gate`, zero shared state
-        # with `rule4_gate`) — RULE4_MIN_COOLDOWN_SECONDS floor, then EITHER
-        # DI crossing its benchmark OR rolling DI + forming candle color;
-        # (2) `scalp_continuation_gate` — re-arms scalp on the ORIGINAL
-        # (failed) side, reusing Rule 6's own existing mechanism verbatim,
-        # unchanged (same as SCALP_SL_PROFIT_SKIP_REVERSAL's own re-arm
-        # above) — this directly answers the user's own follow-up concern
-        # ("wapis scalping ki taraf aa jaye to trade legi kaise") that a
-        # pure reversal-only gate would otherwise leave the ORIGINAL
-        # direction with no way back in except a full DI-regime flip.
+        # Rule 7's immediate/zero-confirmation reversal is net-negative for
+        # Gold on BOTH outcomes — catastrophic on a LOSS-triggered scalp SL
+        # (12x, only 8% win, net -1,689.00 on the reversal leg alone,
+        # -3,988.00 combined), and -234.00 net on a PROFIT-triggered one —
+        # unlike the indices, where the loss-triggered case is net-positive
+        # (deliberately left unchanged there, SCALP_SL_PROFIT_SKIP_REVERSAL
+        # above).
+        #
+        # CORRECTED same day: this flag was originally named
+        # SCALP_SL_LOSS_REVERSAL_COOLDOWN, scoped to a loss-closed scalp SL
+        # only, and its handler ALSO re-armed the original scalp side via
+        # Rule 6's own mechanism in parallel. User caught both as wrong:
+        # "rule 6 us se link nahi hai" (Rule 6 is Scalp TP — has nothing to
+        # do with this SL discussion, remove it) and confirmed the design
+        # applies to BOTH outcomes — "sl with loss hit... rule 4 mein diye
+        # gaye rules copy ho jayenge rule 7 mein, aur sl with profit hit
+        # hone per woh rule copy ho jayenge jo rule 4 mein hain" (Rule 4's
+        # mechanism, and ONLY Rule 4's, gets copied into Rule 7 for a
+        # loss- or profit-closed scalp SL alike — no Rule 6 involvement).
+        #
+        # After being walked through exactly how Rule 4 works (it does NOT
+        # force a trade — it only BLOCKS a fresh same-side entry until a
+        # cooldown + DI/candle confirmation clears, then lets the bot's own
+        # normal signal logic decide from there, same as everything else),
+        # this is applied identically here, to Rule 7's reversal side.
+        #
+        # When True: ANY scalp SL close on XAUUSD no longer calls
+        # `_reverse_scalp()` (no forced, unconfirmed reversal) — instead
+        # `_gate_scalp_reversal` sets ONE isolated gate, `rule7_reversal_
+        # gate` — blocks a fresh WITH_TREND entry on the REVERSAL
+        # (opposite) side only, using the exact same shape as Rule 4's own
+        # gate (own dedicated field + `_check_rule7_reversal_gate`, zero
+        # shared state with `rule4_gate`) — RULE4_MIN_COOLDOWN_SECONDS
+        # floor, then EITHER DI crossing its benchmark OR rolling DI +
+        # forming candle color. This gate does NOT force anything — it
+        # only lifts a block; the scalp's own original side is not this
+        # gate's concern at all, nothing here touches it.
+        #
         # IMPACT: no more forced, unconfirmed reversal trades on Gold after
-        # a losing scalp SL — whichever direction (original or reversed)
-        # the market actually confirms first gets the trade; a resulting
-        # WITH_TREND entry on the reversal side is no longer tagged
-        # "Rule 7" in open_reason (it's a normal Rule 2 entry once the
-        # block lifts, not a forced reversal) — the reversal's tight
-        # sizing (`REVERSAL_FIXED_SL_POINTS`/`_sl_tp_reversal`) and the
-        # one-per-DI-regime cap (`scalp_reversal_used`) no longer apply to
-        # this path either, since no forced entry happens at all anymore.
-        # False (default) for every other symbol — no effect on them.
-        # PROFIT-triggered scalp SL on XAUUSD is a SEPARATE, not-yet-
-        # decided discussion — this flag does not touch that case at all.
-        self.SCALP_SL_LOSS_REVERSAL_COOLDOWN = scalp_sl_loss_reversal_cooldown
+        # ANY scalp SL; a resulting WITH_TREND entry on the reversal side
+        # is no longer tagged "Rule 7" in open_reason (it's a normal
+        # Rule 2 entry once the block lifts, not a forced reversal) — the
+        # reversal's tight sizing (`REVERSAL_FIXED_SL_POINTS`/
+        # `_sl_tp_reversal`) and the one-per-DI-regime cap
+        # (`scalp_reversal_used`) no longer apply to this path either,
+        # since no forced entry happens at all anymore. Trailing SL itself
+        # is completely untouched — same continuous %-of-TP mechanism as
+        # every other symbol, unchanged. False (default) for every other
+        # symbol — no effect on them.
+        self.SCALP_SL_REVERSAL_COOLDOWN = scalp_sl_reversal_cooldown
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR
@@ -535,13 +545,14 @@ XAUUSD = SymbolConfig(  # mean M15 ATR ~8.1 (near-identical to USA500 currently)
     # should shrink per-trade (smaller SL), win rate itself unaffected by
     # this alone (TP unchanged).
     scalp_fixed_sl_points=2.00,
-    # SCALP_SL_LOSS_REVERSAL_COOLDOWN, 2026-09-02 — see SymbolConfig's own
-    # comment on this flag for the full REASON/IMPACT (real data: a LOSS-
-    # triggered immediate scalp-SL reversal was catastrophic for Gold,
-    # 8% win / -3,988 combined, unlike the indices where the same case is
-    # net-positive). XAUUSD named explicitly by the user, so this is
-    # exempt from the standing 2026-08-29 freeze on unnamed changes.
-    scalp_sl_loss_reversal_cooldown=True,
+    # SCALP_SL_REVERSAL_COOLDOWN, 2026-09-02 — see SymbolConfig's own
+    # comment on this flag for the full REASON/IMPACT (real data: an
+    # immediate scalp-SL reversal was net-negative for Gold on BOTH
+    # outcomes — catastrophic on loss, -234 net on profit — unlike the
+    # indices where the loss-triggered case is net-positive). XAUUSD named
+    # explicitly by the user, so this is exempt from the standing
+    # 2026-08-29 freeze on unnamed changes.
+    scalp_sl_reversal_cooldown=True,
 )
 
 GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11)

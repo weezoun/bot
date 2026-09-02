@@ -558,51 +558,53 @@ LOSS-closed scalp SL on these three is completely unaffected — still the
 original immediate reversal above. `False` (default, no effect) for
 XAUUSD and GBPUSD/USDJPY.
 
-**Rule 7 variant, XAUUSD only — loss-triggered scalp SL replaced with a
-Rule-4-shaped gate (`cfg.SCALP_SL_LOSS_REVERSAL_COOLDOWN`, 2026-09-02).**
-Real data showed the LOSS-triggered case above (net-positive for the
-indices) is catastrophic specifically for Gold: 12 immediate pairs, only
-8% reversal win rate, -1,689.00 net on the reversal leg alone (-3,988.00
-combined with the scalp's own loss). User's own words, after being walked
-through exactly how Rule 4 works (it never forces a trade — it only
-BLOCKS a fresh same-side entry until cooldown + DI/candle confirmation
-clears, then the bot's own normal signal logic decides): *"sl loss hit k
-liye same rule4 wali strategy ko copy karenge."*
+**Rule 7 variant, XAUUSD only — scalp SL replaced with a Rule-4-shaped
+gate (`cfg.SCALP_SL_REVERSAL_COOLDOWN`, 2026-09-02).** Real data showed
+an immediate reversal net-negative for Gold on BOTH outcomes: loss-
+triggered — 12 immediate pairs, only 8% reversal win rate, -1,689.00 net
+on the reversal leg alone (-3,988.00 combined with the scalp's own loss)
+— and profit-triggered — -234.00 net on the reversal leg. This is
+unlike the indices, where the loss-triggered case is net-positive
+(kept unchanged there, `SCALP_SL_PROFIT_SKIP_REVERSAL` above).
 
-For XAUUSD, a scalp SL closing in LOSS no longer calls `_reverse_scalp()`
-at all. `_gate_scalp_reversal_after_loss` instead sets TWO independent,
-fully isolated gates in parallel:
-1. `rule7_reversal_gate` — blocks a fresh WITH_TREND entry on the
-   REVERSAL (opposite) side only. Own dedicated field + clearing function
-   (`_check_rule7_reversal_gate`), zero shared state with `rule4_gate` —
-   but deliberately the SAME shape, copied directly: the
-   `RULE4_MIN_COOLDOWN_SECONDS` floor, then EITHER that side's DI
-   crossing its own benchmark (captured at the SL) OR rolling DI +
-   forming candle definitely that side's color. Threaded through
-   `strategy.evaluate_entry`/`evaluate_flip`/`decide` as a new `rule7_gate`
-   parameter, same trivial presence-check pattern as `rule3_gate`/
-   `rule4_gate` — read-only there, clearing logic lives entirely in
-   `_check_rule7_reversal_gate`.
-2. `scalp_continuation_gate` — re-arms scalp on the ORIGINAL (failed)
-   side, reusing Rule 6's own mechanism verbatim (same call shape as the
-   indices' `_rearm_scalp_after_profit_sl` above) — answers the user's own
-   follow-up concern directly ("wapis scalping ki taraf aa jaye to trade
-   legi kaise") that a reversal-only gate would otherwise leave the
-   original direction stuck disarmed until a full DI-regime flip.
+**Corrected same day**: this was originally scoped to a loss-closed
+scalp SL only, and its handler also re-armed the original scalp side via
+Rule 6's own mechanism in parallel. The user caught both as wrong: *"rule
+6 us se link nahi hai"* (Rule 6 is Scalp TP — has nothing to do with this
+SL discussion, remove it) and confirmed the design applies to both
+outcomes: *"sl with loss hit... rule 4 mein diye gaye rules copy ho
+jayenge rule 7 mein, aur sl with profit hit hone per woh rule copy ho
+jayenge jo rule 4 mein hain"* — Rule 4's mechanism, and ONLY Rule 4's,
+gets copied into Rule 7 for a loss- or profit-closed scalp SL alike, no
+Rule 6 involvement at all.
 
-Neither gate forces anything — whichever side's normal signal genuinely
-confirms first is what actually trades. A resulting WITH_TREND entry on
-the reversal side is therefore a normal Rule 2 entry (not tagged
-"Rule 7" in `open_reason` — nothing was forced), and the reversal's own
-tight sizing (`REVERSAL_FIXED_SL_POINTS`) and one-per-DI-regime cap
-(`scalp_reversal_used`) no longer apply to this path, since no forced
-entry happens at all anymore. Verified with a standalone isolation test
-(cooldown floor, both clearing paths, and side-scoping all behave
-independently of `rule3_gate`/`rule4_gate`) before deploying — no MT5
-connection made. **PROFIT-triggered scalp SL on XAUUSD is a separate,
-not-yet-decided discussion — this flag does not touch that case; still
-the ordinary immediate reversal for now.** `False` (default, no effect)
-for every other symbol.
+For XAUUSD, ANY scalp SL close no longer calls `_reverse_scalp()` at
+all. `_gate_scalp_reversal` instead sets ONE isolated gate,
+`rule7_reversal_gate` — blocks a fresh WITH_TREND entry on the REVERSAL
+(opposite) side only. Own dedicated field + clearing function
+(`_check_rule7_reversal_gate`), zero shared state with `rule4_gate` — but
+deliberately the SAME shape, copied directly: the
+`RULE4_MIN_COOLDOWN_SECONDS` floor, then EITHER that side's DI crossing
+its own benchmark (captured at the SL) OR rolling DI + forming candle
+definitely that side's color. Threaded through
+`strategy.evaluate_entry`/`evaluate_flip`/`decide` as a new `rule7_gate`
+parameter, same trivial presence-check pattern as `rule3_gate`/
+`rule4_gate` — read-only there, clearing logic lives entirely in
+`_check_rule7_reversal_gate`.
+
+This gate does not force anything — it only lifts a block; if a genuine
+signal exists on the reversal side once unblocked, the bot's own normal
+entry logic decides from there, exactly like Rule 4 itself. A resulting
+WITH_TREND entry on that side is therefore a normal Rule 2 entry (not
+tagged "Rule 7" in `open_reason` — nothing was forced), and the
+reversal's own tight sizing (`REVERSAL_FIXED_SL_POINTS`) and one-per-DI-
+regime cap (`scalp_reversal_used`) no longer apply to this path, since no
+forced entry happens at all anymore. The scalp's own original side is
+not this mechanism's concern at all — nothing here touches it, in either
+direction. Verified with a standalone isolation test (cooldown floor,
+both clearing paths, and side-scoping all behave independently of
+`rule3_gate`/`rule4_gate`) before deploying — no MT5 connection made.
+`False` (default, no effect) for every other symbol.
 
 ---
 

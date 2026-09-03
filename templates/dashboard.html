@@ -804,7 +804,11 @@
         const symQuery = histSymbol ? `&symbol=${encodeURIComponent(histSymbol)}` : "";
         const res = await apiFetch(`/api/trades/summary?_=${Date.now()}${symQuery}`, { cache: "no-store" });
         const d = await res.json();
-        renderTradeSummary(d.rows || []);
+        // Backend returns oldest-first (trade_store.get_daily_summary) --
+        // reversed here so the summary reads newest-first, requested
+        // directly ("ascending se descending kardo") — frontend-only,
+        // no backend/restart needed.
+        renderTradeSummary((d.rows || []).slice().reverse());
       } catch (e) {
         console.error(e);
       }

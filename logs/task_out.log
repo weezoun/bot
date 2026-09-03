@@ -1,22 +1,27 @@
 [connect_mt5] attached to terminal: C:\Program Files\MetaTrader 5 (expected C:\Program Files\MetaTrader 5\terminal64.exe)
-[USA500] 18:50:21 | Bot loop started
-[USA500] 18:50:21 | Bot marked RUNNING
-[USA100] 18:50:21 | Bot loop started
-[USA100] 18:50:21 | Bot marked RUNNING
-[USA30] 18:50:21 | Bot loop started
-[USA100] 18:50:21 | History sync (USA100, last 90d): 631 closed positions seen in MT5 deals, 631 already known, 0 added, 0 unresolved
-[USA100] 18:50:21 | Note: 3440 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA30', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA100 only)
-[USA30] 18:50:21 | Bot marked RUNNING
-[XAUUSD] 18:50:21 | Bot loop started
-[XAUUSD] 18:50:21 | Bot marked RUNNING
-[GBPUSD] 18:50:21 | Bot loop started
-[GBPUSD] 18:50:21 | Bot marked RUNNING
-[USA500] 18:50:21 | History sync (USA500, last 90d): 757 closed positions seen in MT5 deals, 757 already known, 0 added, 0 unresolved
-[USA500] 18:50:21 | Note: 3314 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA500 only)
-[USDJPY] 18:50:21 | Bot loop started
-[USDJPY] 18:50:21 | Bot marked RUNNING
-[USA500] 18:50:21 | SKIP DOWN: scalp BUY blocked [+DI(12.3) not rising vs prior candle (14.0) (Rule 5)] | trend SELL blocked [forming candle currently green (opposite direction)]
+[USA500] 02:04:44 | Bot loop started
+[USA500] 02:04:44 | Bot marked RUNNING
+[USA100] 02:04:44 | Bot loop started
+[USA100] 02:04:44 | Bot marked RUNNING
+[USA30] 02:04:44 | Bot loop started
+[USA30] 02:04:44 | Bot marked RUNNING
+[XAUUSD] 02:04:44 | Bot loop started
+[XAUUSD] 02:04:44 | Bot marked RUNNING
+[GBPUSD] 02:04:44 | Bot loop started
+[GBPUSD] 02:04:44 | Bot marked RUNNING
+[USDJPY] 02:04:44 | Bot loop started
+[USDJPY] 02:04:44 | Bot marked RUNNING
+[USA500] 02:04:44 | History sync (USA500, last 90d): 1087 closed positions seen in MT5 deals, 1087 already known, 0 added, 0 unresolved
+[USA500] 02:04:44 | Note: 4488 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA500 only)
+[USA30] 02:04:44 | History sync (USA30, last 90d): 928 closed positions seen in MT5 deals, 928 already known, 0 added, 0 unresolved
+[USA30] 02:04:44 | Note: 4647 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA30 only)
+[GBPUSD] 02:04:44 | History sync (GBPUSD, last 90d): 431 closed positions seen in MT5 deals, 431 already known, 0 added, 0 unresolved
+[GBPUSD] 02:04:44 | Note: 5144 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks GBPUSD only)
+[USDJPY] 02:04:44 | History sync (USDJPY, last 90d): 471 closed positions seen in MT5 deals, 471 already known, 0 added, 0 unresolved
+[USDJPY] 02:04:44 | Note: 5104 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USA500', 'XAUUSD'] — not counted here (this bot instance tracks USDJPY only)
+[USA100] 02:04:44 | History sync (USA100, last 90d): 955 closed positions seen in MT5 deals, 955 already known, 0 added, 0 unresolved
+[USA100] 02:04:44 | Note: 4620 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA30', 'USA500', 'USDJPY', 'XAUUSD'] — not counted here (this bot instance tracks USA100 only)
+[XAUUSD] 02:04:44 | History sync (XAUUSD, last 90d): 1700 closed positions seen in MT5 deals, 1700 already known, 0 added, 0 unresolved
+[XAUUSD] 02:04:44 | Note: 3875 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USA500', 'USDJPY'] — not counted here (this bot instance tracks XAUUSD only)
  * Serving Flask app 'app'
-[USDJPY] 18:50:21 | History sync (USDJPY, last 90d): 320 closed positions seen in MT5 deals, 320 already known, 0 added, 0 unresolved
-[USDJPY] 18:50:21 | Note: 3751 closed position(s) in broker history are on other symbol(s) ['Cocoa', 'GBPUSD', 'Palladium', 'Platinum', 'USA100', 'USA30', 'USA500', 'XAUUSD'] — not counted here (this bot instance tracks USDJPY only)
  * Debug mode: off

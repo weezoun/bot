@@ -716,7 +716,17 @@ GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11
     # symbol, not just fewer losing ones. Re-enabling either flag later
     # returns to the exact prior behavior; Rules 1-4 and every other
     # symbol are completely unaffected by this pair of flags.
-    scalping_enabled=False, flip_enabled=False,
+    # RE-ENABLED, 2026-09-03 — requested directly: "currency pairs ko ab
+    # align kerte hein... bilkul indices ke jeisa bana do un per tamam 6
+    # rules apply hon ge jeise indices per ho rahe hain, un per scalping
+    # ban ki hoi hai woh bhi open kerdo." Values-only for now — SL/TP
+    # levels to be reviewed in a follow-up round ("uske baad hum unke SL
+    # TP levels dekhein ge"), not touched here. See the 2026-08-14 history
+    # right below for why this was off in the first place (Rule 7/FLIP at
+    # 0% win rate, Rule 5 the biggest $ loss contributor, back then) —
+    # revisiting that call now on the user's own explicit instruction, not
+    # new data; worth watching closely against real trades going forward.
+    scalping_enabled=True, flip_enabled=True,
     # FOLLOW-UP, 2026-08-14: even with Rule 5/6/7/FLIP off, Rule 2 alone
     # was still losing (-361 over 14 trades since the disable). User: "in
     # k stats kisi kaam ke nahi, koi improvement ki gunjaish nazar nahi
@@ -752,17 +762,24 @@ GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11
     # (2) New reversal-on-WITH_TREND-SL mechanism — see
     # bot_runner._reverse_trend() and BotState.trend_reversal_used for
     # the full isolated implementation. NOT Rule 7 (which stays disabled
-    # here, scalping_enabled=False) — a separate, new, simpler mechanism
-    # triggered by a WITH_TREND SL specifically, since Rule 5/6/7 have no
-    # scalp position to ever trigger from on this symbol. Sized by this
-    # same flat 0.00050 SL/TP, trails at the same corrected staircase as
-    # every other position here.
-    trend_sl_reversal_enabled=True,
+    # was NOT Rule 7 (which was disabled here at the time,
+    # scalping_enabled=False) — a separate, simpler mechanism triggered
+    # by a WITH_TREND SL specifically, built as a substitute since
+    # Rule 5/6/7 had no scalp position to ever trigger from back then.
+    #
+    # DISABLED AGAIN, 2026-09-03 — this symbol's whole rule-set was
+    # realigned to match indices exactly (see scalping_enabled/flip_
+    # enabled above), and indices never had this substitute mechanism at
+    # all. Now that Rule 5/6/7 are back, its entire justification (no
+    # scalp position ever existed to trigger Rule 7) no longer applies —
+    # keeping it on would mean this symbol reacts to a WITH_TREND SL with
+    # BOTH Rule 4's own gated re-entry AND this separate forced immediate
+    # reversal simultaneously, which indices never do. Reverted to the
+    # default `False` so GBPUSD's rule-set is a genuine match, not
+    # indices plus an extra mechanism layered on top.
+    trend_sl_reversal_enabled=False,
     # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
-    # the full REASON/IMPACT/history. Rule 5/6 are moot here (already
-    # disabled, scalping_enabled=False) but Rule 3 (WITH_TREND TP re-arm)
-    # is NOT disabled on this symbol — this DOES have a real effect: Rule
-    # 3's gate no longer requires ATR strong here either.
+    # the full REASON/IMPACT/history.
     atr_check_enabled=False,
 )
 
@@ -830,7 +847,11 @@ USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scal
     # removing scalp's occasional wins and FLIP's early-reversal catches;
     # fewer trades overall, not just fewer losing ones. Re-enabling
     # either flag returns to the exact prior behavior.
-    scalping_enabled=False, flip_enabled=False,
+    # RE-ENABLED, 2026-09-03 — same instruction as GBPUSD (see that
+    # symbol's comment for the full REASON/quote): both currency pairs
+    # realigned to match indices exactly. Values-only for now — SL/TP
+    # levels to be reviewed in a follow-up round, not touched here.
+    scalping_enabled=True, flip_enabled=True,
     # FOLLOW-UP, 2026-08-14, same instruction as GBPUSD above (see that
     # symbol's comment for the full REASON — identical reasoning): Rule 2
     # alone still losing (-145.28 over 8 trades since the disable). Same
@@ -846,12 +867,15 @@ USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scal
     # derivation). `trail_step_pct`/`trail_increment_pct` removed — falls
     # through to the generic branch (activate=25%/lock_back=25%/
     # min_lock=12.5% of TP, continuous).
-    trend_sl_reversal_enabled=True,
+    # DISABLED AGAIN, 2026-09-03 — same reasoning as GBPUSD's own comment
+    # (see that symbol): this symbol's rule-set was realigned to match
+    # indices exactly, and indices never had this substitute mechanism.
+    # Now that Rule 5/6/7 are back, its whole justification (no scalp
+    # position ever existed to trigger Rule 7) no longer applies. Reverted
+    # to the default `False`.
+    trend_sl_reversal_enabled=False,
     # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
-    # the full REASON/IMPACT/history. Rule 5/6 are moot here (already
-    # disabled, scalping_enabled=False) but Rule 3 (WITH_TREND TP re-arm)
-    # is NOT disabled on this symbol — this DOES have a real effect: Rule
-    # 3's gate no longer requires ATR strong here either.
+    # the full REASON/IMPACT/history.
     atr_check_enabled=False,
 )
 

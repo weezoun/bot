@@ -800,6 +800,26 @@ catch an early genuine reversal) — fewer trades overall, not just fewer
 losing ones. Re-enabling either flag returns to the exact prior
 behavior.
 
+**RE-ENABLED, 2026-09-03, requested directly**: *"currency pairs ko ab
+align kerte hein... bilkul indices ke jeisa bana do un per tamam 6 rules
+apply hon ge jeise indices per ho rahe hain, un per scalping ban ki hoi
+hai woh bhi open kerdo."* `SCALPING_ENABLED`/`FLIP_ENABLED` both reverted
+to `True` on GBPUSD and USDJPY — a policy decision on the user's own
+explicit instruction, not new data overturning the 2026-08-14 findings
+above (those stay true historically; worth watching closely against
+fresh trades now that Rule 5/6/7/FLIP are live again). SL/TP values on
+both symbols are UNCHANGED for now (a follow-up round, not yet done).
+The GBPUSD/USDJPY-only `TREND_SL_REVERSAL_ENABLED` substitute mechanism
+(see "New mechanism" section above) was reverted to `False` in the same
+change — indices never had it, and its whole justification (no scalp
+position ever existing to trigger Rule 7) no longer applies now that
+Rule 5/6/7 are back; keeping it on would have meant reacting to a
+WITH_TREND SL with both it AND Rule 4's own gated re-entry
+simultaneously, unlike indices. Indices' own `SCALP_SL_PROFIT_SKIP_
+REVERSAL` mechanism (data-driven, indices-specific — see Rule 7's own
+section) was deliberately NOT copied to GBPUSD/USDJPY, since that data
+doesn't exist for these two symbols yet.
+
 **FOLLOW-UP, 2026-08-14 — Rule 2 alone still losing.** With Rule 5/6/7/
 FLIP off, Rule 2 alone kept losing (GBPUSD -361/14 trades, USDJPY
 -145.28/8 trades, since the 2026-08-14 disable above). User (verbatim):

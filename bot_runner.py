@@ -901,9 +901,11 @@ class SymbolBot:
         )
 
     def _gate_scalp_reversal(self, closed_side: str, live_snap, profit: float):
-        """XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), added 2026-09-02
-        — see that flag's own comment in config.py for the full REASON/
-        IMPACT.
+        """Originally XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), added
+        2026-09-02 — EXTENDED to GBPUSD/USDJPY 2026-09-03 (requested
+        directly, alongside re-enabling their Rule 5/6/7/FLIP — currency
+        pairs follow Gold's Rule 7 mechanism, not indices'). See that
+        flag's own comment in config.py for the full REASON/IMPACT.
 
         CORRECTED same day: originally named _gate_scalp_reversal_after_
         loss, scoped to a loss-closed scalp SL only, and ALSO re-armed the
@@ -958,14 +960,14 @@ class SymbolBot:
         candle_word = 'green' if opposite == 'BUY' else 'red'
         if sl_time is not None:
             self.state.log(
-                f"Rule 7 (XAUUSD): Scalp SL ({closed_side}, loss {profit:+.2f}) — no immediate "
+                f"Rule 7: Scalp SL ({closed_side}, loss {profit:+.2f}) — no immediate "
                 f"reversal. {opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, "
                 f"THEN EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} "
                 f"(benchmark) OR rolling {label} rising + forming candle definitely {candle_word}"
             )
         else:
             self.state.log(
-                f"Rule 7 (XAUUSD): Scalp SL ({closed_side}, trailing profit {profit:+.2f}) — no "
+                f"Rule 7: Scalp SL ({closed_side}, trailing profit {profit:+.2f}) — no "
                 f"immediate reversal — no minimum-wait cooldown (closed in profit, not a loss). "
                 f"{opposite}-side needs EITHER {label} crossing "
                 f"{self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR rolling {label} "
@@ -1204,7 +1206,9 @@ class SymbolBot:
             self.state.log(f"Rule 4 gate cleared ({side}) — {reason}")
 
     def _check_rule7_reversal_gate(self, live_snap):
-        """XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), 2026-09-02 —
+        """Originally XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), 2026-09-02
+        — EXTENDED to GBPUSD/USDJPY 2026-09-03, see _gate_scalp_reversal's
+        own docstring for the full history —
         self-contained clearing check for rule7_reversal_gate (set in
         _gate_scalp_reversal, for ANY scalp SL close, profit or loss
         alike). Fully independent implementation — zero shared code/state

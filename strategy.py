@@ -321,7 +321,8 @@ def evaluate_flip(live_snap: Snapshot, closed_snap: Snapshot, has_buy: bool, has
 
     FLIP has its own separate confirmation criteria (DI flip/strong + RSI,
     not Rule 2's last-closed-candle-color checks). It DOES still need to
-    respect rule3_gate/rule4_gate (and, XAUUSD only, rule7_gate), though —
+    respect rule3_gate/rule4_gate (and rule7_gate, on cfg.SCALP_SL_
+    REVERSAL_COOLDOWN symbols), though —
     a WITH_TREND close on a side should block FLIP into that same side
     too, same as it blocks a fresh Rule 2 entry (originally found and
     fixed 2026-08-11: FLIP used to skip this entirely, letting a
@@ -481,7 +482,7 @@ def _skip_trend_buy_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     if rule4_gate and rule4_gate.get('side') == 'BUY':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
     if rule7_gate and rule7_gate.get('side') == 'BUY':
-        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, XAUUSD only)")
+        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, cfg.SCALP_SL_REVERSAL_COOLDOWN symbols only)")
     return "; ".join(parts) if parts else "trend BUY conditions OK"
 
 
@@ -509,7 +510,7 @@ def _skip_trend_sell_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     if rule4_gate and rule4_gate.get('side') == 'SELL':
         parts.append("Rule 4 gate active (blocked after a WITH_TREND SL)")
     if rule7_gate and rule7_gate.get('side') == 'SELL':
-        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, XAUUSD only)")
+        parts.append("Rule 7 reversal gate active (blocked after a scalp SL, cfg.SCALP_SL_REVERSAL_COOLDOWN symbols only)")
     return "; ".join(parts) if parts else "trend SELL conditions OK"
 
 
@@ -540,8 +541,9 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
     touching this function, and vice versa.
 
     rule7_gate: {'side': 'BUY'|'SELL', 'benchmark': ..., 'sl_time': ...} or
-    None — XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), set by
-    bot_runner's _gate_scalp_reversal right after ANY scalp SL (profit or
+    None — originally XAUUSD only, extended to GBPUSD/USDJPY 2026-09-03
+    (cfg.SCALP_SL_REVERSAL_COOLDOWN), set by bot_runner's
+    _gate_scalp_reversal right after ANY scalp SL (profit or
     loss alike), in place of the old immediate `_reverse_scalp()`. Same
     simple presence/side-check pattern as rule3_gate/rule4_gate, same
     isolation boundary — clearing logic lives entirely in
@@ -638,7 +640,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and not _bearish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'BUY')  # presence check only
             and not (rule4_gate and rule4_gate.get('side') == 'BUY')  # presence check only
-            and not (rule7_gate and rule7_gate.get('side') == 'BUY')  # presence check only, XAUUSD only
+            and not (rule7_gate and rule7_gate.get('side') == 'BUY')  # presence check only, SCALP_SL_REVERSAL_COOLDOWN symbols only
         )
         if trend_ok:
             sl, tp = _sl_tp_trend('BUY', snap.close, snap.atr, cfg)
@@ -701,7 +703,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and not _bullish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'SELL')  # presence check only
             and not (rule4_gate and rule4_gate.get('side') == 'SELL')  # presence check only
-            and not (rule7_gate and rule7_gate.get('side') == 'SELL')  # presence check only, XAUUSD only
+            and not (rule7_gate and rule7_gate.get('side') == 'SELL')  # presence check only, SCALP_SL_REVERSAL_COOLDOWN symbols only
         )
         if trend_ok:
             sl, tp = _sl_tp_trend('SELL', snap.close, snap.atr, cfg)

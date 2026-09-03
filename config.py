@@ -781,6 +781,20 @@ GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11
     # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
     # the full REASON/IMPACT/history.
     atr_check_enabled=False,
+    # SCALP_SL_REVERSAL_COOLDOWN, 2026-09-03 — requested directly:
+    # currency pairs should follow GOLD's Rule 7 mechanism, NOT indices'
+    # ("gold ke tamam rules ko follow kare... currency per rules lagane
+    # hain gold wale, indices wale nahi"). Same reasoning that motivated
+    # disabling scalping here in the first place (2026-08-14 — Rule 7's
+    # old immediate, zero-confirmation reversal was a real loss
+    # contributor): with this flag, Rule 7 no longer forces that reversal
+    # at all — it only gates a fresh WITH_TREND entry on the reversal side
+    # behind a cooldown + DI/candle confirmation (same shape as Rule 4,
+    # see that flag's own SymbolConfig comment for the full mechanism).
+    # NOT indices' `SCALP_SL_PROFIT_SKIP_REVERSAL` (that flag is built
+    # from indices-specific trade data showing loss-triggered reversal is
+    # net-positive there — a claim with no data of its own for GBPUSD).
+    scalp_sl_reversal_cooldown=True,
 )
 
 USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scale)
@@ -877,6 +891,10 @@ USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scal
     # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
     # the full REASON/IMPACT/history.
     atr_check_enabled=False,
+    # SCALP_SL_REVERSAL_COOLDOWN, 2026-09-03 — same reasoning as GBPUSD's
+    # own comment (see that symbol): currency pairs follow GOLD's Rule 7
+    # mechanism, not indices'.
+    scalp_sl_reversal_cooldown=True,
 )
 
 USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default on

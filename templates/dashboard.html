@@ -423,14 +423,17 @@
     <section class="panel span-12">
       <h2 style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
         <span>Trade history <span class="sub" id="histScopeLabel">(closed positions — all symbols — why opened, why closed)</span></span>
-        <select id="histSymbolFilter" onchange="onHistFilterChange()">
-          <option value="">All symbols</option>
-          {% for s in symbols %}
-          <option value="{{ s }}">{{ s }}</option>
-          {% endfor %}
-        </select>
+        <span style="display:flex; align-items:center; gap:0.5rem;">
+          <button id="histSummaryToggle" class="tab-btn" onclick="toggleHistSummary()">📊 Summary</button>
+          <select id="histSymbolFilter" onchange="onHistFilterChange()">
+            <option value="">All symbols</option>
+            {% for s in symbols %}
+            <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+        </span>
       </h2>
-      <div style="overflow-x:auto">
+      <div id="histListView" style="overflow-x:auto">
         <table>
           <thead>
             <tr>
@@ -442,10 +445,22 @@
           </tbody>
         </table>
       </div>
-      <div class="pager">
+      <div id="histPager" class="pager">
         <button id="histNewer" onclick="changeHistPage(-1)">&laquo; Newer</button>
         <span id="histPageInfo" class="pageInfo">Page 1</span>
         <button id="histOlder" onclick="changeHistPage(1)">Older &raquo;</button>
+      </div>
+      <div id="histSummaryView" style="overflow-x:auto; display:none;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Total trades</th><th>Trades in profit</th><th>Total profit</th><th>Trades in loss</th><th>Total loss</th><th>Day P/L</th>
+            </tr>
+          </thead>
+          <tbody id="histSummaryBody">
+            <tr><td colspan="7">No closed trades yet</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -707,6 +722,7 @@
     let histPage = 1;
     let histTotalPages = 1;
     let histSymbol = "";  // "" = all symbols, else e.g. "USA30" — see onHistFilterChange()
+    let histSummaryMode = false;  // false = trade list (existing, unchanged), true = date-wise summary — see toggleHistSummary()
     function renderTradeHistory(hist) {
       const histBody = document.getElementById("histBody");
       if (!hist.length) {
@@ -759,7 +775,51 @@
       label.textContent = histSymbol
         ? `(closed positions — ${histSymbol} only — why opened, why closed)`
         : "(closed positions — all symbols — why opened, why closed)";
-      loadTradeHistory(1);  // filter changed — always restart from the newest page
+      if (histSummaryMode) {
+        loadTradeSummary();
+      } else {
+        loadTradeHistory(1);  // filter changed — always restart from the newest page
+      }
+    }
+
+    function renderTradeSummary(rows) {
+      const body = document.getElementById("histSummaryBody");
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="7">No closed trades yet</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map(r => `
+        <tr>
+          <td class="mono">${r.date}</td>
+          <td class="mono">${r.total}</td>
+          <td class="mono up">${r.wins}</td>
+          <td class="mono up">${n(r.profit)}</td>
+          <td class="mono down">${r.losses}</td>
+          <td class="mono down">${n(r.loss)}</td>
+          <td class="mono ${r.day_pl >= 0 ? 'up' : 'down'}">${n(r.day_pl)}</td>
+        </tr>`).join("");
+    }
+    async function loadTradeSummary() {
+      try {
+        const symQuery = histSymbol ? `&symbol=${encodeURIComponent(histSymbol)}` : "";
+        const res = await apiFetch(`/api/trades/summary?_=${Date.now()}${symQuery}`, { cache: "no-store" });
+        const d = await res.json();
+        renderTradeSummary(d.rows || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    function toggleHistSummary() {
+      histSummaryMode = !histSummaryMode;
+      document.getElementById("histSummaryToggle").classList.toggle("active", histSummaryMode);
+      document.getElementById("histListView").style.display = histSummaryMode ? "none" : "";
+      document.getElementById("histPager").style.display = histSummaryMode ? "none" : "";
+      document.getElementById("histSummaryView").style.display = histSummaryMode ? "" : "none";
+      if (histSummaryMode) {
+        loadTradeSummary();
+      } else {
+        loadTradeHistory(histPage);
+      }
     }
 
     async function startBot() {
@@ -773,7 +833,10 @@
     refresh();
     loadTradeHistory();
     setInterval(refresh, 2000);
-    setInterval(() => { if (histPage === 1) loadTradeHistory(1); }, 4000);
+    setInterval(() => {
+      if (histSummaryMode) { loadTradeSummary(); }
+      else if (histPage === 1) { loadTradeHistory(1); }
+    }, 4000);
   </script>
 </body>
 </html>

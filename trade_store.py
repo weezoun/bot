@@ -252,6 +252,56 @@ def get_stats(account_login: int, symbol: Optional[str] = None) -> dict:
         conn.close()
 
 
+def get_daily_summary(account_login: int, symbol: Optional[str] = None) -> list:
+    """Date-wise breakdown (one row per calendar day that has at least one
+    closed trade), across the ENTIRE history — no date-range limiting, per
+    direct instruction ("sirf 2 din nahi, tamam existing trading dates ka
+    data chahiye"). symbol=None combines every symbol within this account
+    (matches the dashboard's own "All symbols" dropdown option); a specific
+    symbol scopes to just that one.
+
+    Date bucket = the first 10 characters of `closed_at` (its own
+    'YYYY-MM-DD HH:MM:SS' format, local machine time per v2.4's fix) — the
+    same field/format `get_page`'s own trade list already displays, so a
+    day's summary row lines up with exactly the trades a user would see by
+    paging through the list for that same day. Ordered oldest-first,
+    matching the order the feature was asked to mirror."""
+    table = _table_name(account_login)
+    where = "WHERE symbol = ?" if symbol else ""
+    params = (symbol,) if symbol else ()
+    sql = f"""
+        SELECT
+            substr(closed_at, 1, 10) AS day,
+            COUNT(*) AS total,
+            SUM(CASE WHEN profit > 0 THEN 1 ELSE 0 END) AS wins,
+            SUM(CASE WHEN profit < 0 THEN 1 ELSE 0 END) AS losses,
+            COALESCE(SUM(CASE WHEN profit > 0 THEN profit ELSE 0 END), 0) AS profit,
+            COALESCE(SUM(CASE WHEN profit < 0 THEN profit ELSE 0 END), 0) AS loss,
+            COALESCE(SUM(profit), 0) AS day_pl
+        FROM "{table}" {where}
+        GROUP BY day
+        ORDER BY day ASC
+    """
+    conn = _connect()
+    try:
+        _ensure_table(conn, table)
+        rows = conn.execute(sql, params).fetchall()
+        return [
+            {
+                "date": r["day"],
+                "total": r["total"] or 0,
+                "wins": r["wins"] or 0,
+                "profit": round(r["profit"] or 0, 2),
+                "losses": r["losses"] or 0,
+                "loss": round(r["loss"] or 0, 2),
+                "day_pl": round(r["day_pl"] or 0, 2),
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
 def find_unreconciled(symbol: str, account_login: int, limit: int = 25) -> list:
     table = _table_name(account_login)
     conn = _connect()

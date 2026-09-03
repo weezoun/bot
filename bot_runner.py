@@ -957,7 +957,14 @@ class SymbolBot:
         dominant (opposing the big trend, the scalp definition) AND
         rolling (rising vs the immediately preceding candle), RSI inside
         the scalp band, ATR strong, and the currently forming candle
-        DEFINITELY the required color."""
+        DEFINITELY the required color.
+
+        CHANGED 2026-09-03 (cfg.SCALP_ATR_CHECK_ENABLED, per-symbol, all 5
+        non-XAUUSD symbols) — requested directly, mirroring Rule 5's own
+        matching change (see strategy.evaluate_entry's own comment for the
+        full REASON/IMPACT/history): ATR is now only actually enforced
+        when this flag is True. XAUUSD keeps it (unaffected, frozen).
+        ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally."""
         gate = self.state.scalp_continuation_gate
         if not gate:
             return
@@ -968,7 +975,7 @@ class SymbolBot:
                 and live_snap.di_plus > live_snap.di_minus
                 and live_snap.di_plus > live_snap.prev_di_plus       # rolling DI
                 and live_snap.rsi > self.cfg.RSI_SCALP_BUY_MIN
-                and live_snap.atr_strong
+                and (live_snap.atr_strong or not self.cfg.SCALP_ATR_CHECK_ENABLED)
                 and _bullish_candle(live_snap)                        # forming candle definitely green
             )
         else:
@@ -977,14 +984,15 @@ class SymbolBot:
                 and live_snap.di_minus > live_snap.di_plus
                 and live_snap.di_minus > live_snap.prev_di_minus     # rolling DI
                 and live_snap.rsi < self.cfg.RSI_SCALP_SELL_MAX
-                and live_snap.atr_strong
+                and (live_snap.atr_strong or not self.cfg.SCALP_ATR_CHECK_ENABLED)
                 and _bearish_candle(live_snap)                        # forming candle definitely red
             )
         if cleared:
             self.state.scalp_continuation_gate = None
             self.state.scalp_armed = True
+            atr_part = "ATR" if self.cfg.SCALP_ATR_CHECK_ENABLED else "ATR-check-disabled"
             self.state.log(
-                f"Rule 6 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/ATR/candle all confirmed "
+                f"Rule 6 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/candle all confirmed "
                 f"(same-candle re-arm now allowed once confirmed)"
             )
 

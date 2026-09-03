@@ -357,7 +357,7 @@ def _build_rules():
                 "Trend must be TRENDING_UP or TRENDING_DOWN (not NEUTRAL).",
                 "ADX >= ADX_MIN (RE-ADDED 2026-08-13 — see note below).",
                 "RSI inside the scalp band (RE-ADDED 2026-08-13).",
-                "ATR must be \"strong\" right now — atr >= its own 50-bar mean, OR atr > the immediately preceding candle's ATR (RE-ADDED 2026-08-13).",
+                "ATR must be \"strong\" right now — atr >= its own 50-bar mean, OR atr > the immediately preceding candle's ATR (RE-ADDED 2026-08-13; REMOVED AGAIN for USA500/USA100/USA30/GBPUSD/USDJPY, 2026-09-03 — see note below; XAUUSD unaffected, still requires it).",
                 "Rolling DI: this side's DI must be above the immediately preceding candle (accelerating right now) — -DI rising while trend is UP -> scalp SELL; +DI rising while trend is DOWN -> scalp BUY. Still no requirement that this side's DI already be greater than the other side's (see DI-cross note below).",
                 "The currently FORMING candle must definitely be the same direction as the trade — red for a SELL, green for a BUY (an absolute requirement, checked live so a genuine move can be caught early rather than waited out).",
                 "scalp_armed must be True (one counter-scalp attempt per DI regime).",
@@ -366,6 +366,8 @@ def _build_rules():
                 "NOTE: the literal instantaneous DI cross (this side's DI > the other side's DI) stays REMOVED (not asked to restore, 2026-08-13) — the original reason for rolling DI was to catch the move before a full cross happens, since waiting for the actual cross is too slow/late; requiring the cross ON TOP of rolling DI defeated that purpose. ADX/RSI/ATR are a noise filter layered back on top of that early-entry design, not a reversal of it.",
                 "GBPUSD/USDJPY: Rule 5 (and by extension Rule 6/7, which need a scalp position to exist at all) DISABLED entirely, 2026-08-14, requested directly. REASON: user reported these two symbols taking \"late signals\" and losing money; investigation (real trade data, no rule changes at the time) found Rule 7 (reversal) and FLIP at 0% win rate on both symbols, and Rule 5 (scalp) as the single biggest $ loss contributor on both — every Rule 7/FLIP entry landed 33-884 seconds INTO its M15 candle (reactive, not anchored to a candle boundary like Rule 2 is), which is the literal \"late signal\" being described. IMPACT: GBPUSD/USDJPY now only ever trade WITH_TREND (Rule 2) — this removes those loss sources, but also removes whatever wins Rule 5/FLIP occasionally produced, and means these two symbols simply sit flat during stretches where Rule 2 isn't confirmed. Every other symbol is completely unaffected — `cfg.SCALPING_ENABLED` defaults `True` everywhere else.",
                 "GBPUSD/USDJPY FOLLOW-UP, 2026-08-14: Rule 2 alone was still losing even with Rule 5/6/7/FLIP off (GBPUSD -361/14, USDJPY -145.28/8). User: \"in ki stats kisi kaam ke nahi... yeh signal ghalat time per le rahe hein\" — 4 changes to Rule 2/4 instead of re-enabling anything: SL halved (0.00100->0.00050 GBPUSD, 0.100->0.050 USDJPY), TP cut to match (1:1), faster trailing, and a brand-new zero-confirmation reversal-on-SL mechanism added (see Rule 4's card). FOLLOW-UP 2, 2026-08-15: USDJPY's SL/TP raised again 0.050->0.075 (\"itna chota ho gaya hai trail kaam hi nahi kare ga\") — too small for the trail to have meaningful room; GBPUSD's 0.00050 untouched. Trailing itself: see the trailing row above (unified across all 6 symbols same day). Rule 5's own entry conditions above are untouched — it's still fully disabled on these two, this follow-up only touched Rule 2/4's sizing and the trailing mechanism.",
+                "ATR REMOVED, 2026-09-03 (cfg.SCALP_ATR_CHECK_ENABLED, all 5 non-XAUUSD symbols): requested directly, mirroring Rule 2's own entry condition (evaluate_entry's trend_ok), which has never checked ATR at all — \"jaise hum ne with_trend mein ATR ka check nahi lagaya hoa usi tarah scalp ke andar se bhi ATR check remove karo.\" ADX and RSI both stay, unconditionally, on every symbol — only the ATR leg of the 2026-08-13 noise-filter fix above is now conditional. XAUUSD keeps requiring it (unaffected, frozen). Same flag also removes ATR from Rule 6's own re-arm confirmation (see that card) — no practical effect on GBPUSD/USDJPY since Rule 5/6 are already disabled there.",
+                "FLAGGED, not yet acted on: Rule 3 (WITH_TREND TP hit)'s own re-arm gate (`_check_rule3_gate`) DOES check ATR, even though a fresh WITH_TREND entry (Rule 2) itself does not — found while making this change, since the request's premise was \"with_trend has no ATR check anywhere.\" Left untouched (a separate locked rule) — flagged for the user to decide separately.",
             ],
             "applies": scalp_symbols,
         },
@@ -376,7 +378,7 @@ def _build_rules():
                 "Trade recorded to history as a win.",
                 "Does NOT re-arm scalp_armed immediately — sets scalp_continuation_gate instead.",
                 "WITH_TREND is free to fire on its own normal conditions with no extra check from this rule — CHANGED 2026-08-13 (requested directly): previously ALL new entries (WITH_TREND and scalp, either side) were blocked outright on the SAME candle a scalp TP happened; that blanket block is removed, since it was also preventing the trend from continuing right after a clean win.",
-                "For scalp specifically, the gate clears once full confirmation passes: ADX >= ADX_MIN, this side's DI still dominant (opposing the big trend) AND rolling (above the immediately preceding candle), RSI inside the scalp band, ATR strong, AND the currently forming candle definitely the required color (green for BUY, red for SELL) — checked live, not against a closed candle. CHANGED 2026-08-13: no longer requires waiting for a new candle to even start — can clear within the SAME candle the TP happened on, the moment all of this confirms (the original blanket same-candle block is now handled by this confirmation requirement instead — a genuine exhaustion/reversal should fail it, genuine continuation should pass it).",
+                "For scalp specifically, the gate clears once full confirmation passes: ADX >= ADX_MIN, this side's DI still dominant (opposing the big trend) AND rolling (above the immediately preceding candle), RSI inside the scalp band, ATR strong (USA500/USA100/USA30/GBPUSD/USDJPY: no longer required, 2026-09-03 — see Rule 5's card; XAUUSD unaffected), AND the currently forming candle definitely the required color (green for BUY, red for SELL) — checked live, not against a closed candle. CHANGED 2026-08-13: no longer requires waiting for a new candle to even start — can clear within the SAME candle the TP happened on, the moment all of this confirms (the original blanket same-candle block is now handled by this confirmation requirement instead — a genuine exhaustion/reversal should fail it, genuine continuation should pass it).",
                 "Once satisfied, scalp_armed becomes True again — but the next scalp still has to independently pass every check in the Scalp entry rule above, this only lifts the \"already scalped this regime\" cap.",
                 "GBPUSD/USDJPY: moot — Rule 5 disabled means no scalp position ever opens, so this rule's own trigger (a scalp TP) can never fire on these two symbols. See Rule 5's card.",
             ],
@@ -494,6 +496,22 @@ def api_trades():
     if login is None:
         return _no_cache(jsonify({"trades": [], "page": 1, "page_size": 50, "total": 0, "total_pages": 1}))
     return _no_cache(jsonify(trade_store.get_page(page, 50, login, symbol=symbol)))
+
+
+@app.route("/api/trades/summary")
+def api_trades_summary():
+    """Date-wise breakdown, one row per day with at least one closed trade,
+    across the ENTIRE history (no range limit — requested directly).
+    ?symbol=USA500 scopes to one symbol; omitted combines every symbol.
+    Always scoped to the currently-connected account (see api_status)."""
+    symbol = request.args.get("symbol") or None
+    try:
+        login = mt5.account_info().login
+    except Exception:
+        login = None
+    if login is None:
+        return _no_cache(jsonify({"rows": []}))
+    return _no_cache(jsonify({"rows": trade_store.get_daily_summary(login, symbol=symbol)}))
 
 
 @app.route("/api/start", methods=["POST"])

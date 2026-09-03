@@ -763,17 +763,39 @@ same-day trailing-mechanism unification that was requested alongside
 this.
 
 **Entry (Rule 5):** ADX >= ADX_MIN, RSI inside the scalp band, ATR
-"strong", rolling DI (this side's DI above the preceding candle — no
-requirement the side already be dominant over the other, unlike a literal
-cross), and the currently forming candle definitely the same direction as
-the trade (red for SELL, green for BUY), and `scalp_armed` is currently
-True. RSI/ATR were removed 2026-08-12, then RE-ADDED 2026-08-13 — data
-showed rolling-DI-alone fired on pure noise in choppy conditions (e.g.
-XAUUSD entries like "-DI 11.9 rising vs prior 11.8"); user asked for
-ADX/RSI/ATR back as the noise filter. The literal DI cross stays
-removed — rolling DI catching a move before it fully crosses is still
-the intended earlier-entry design; ADX/RSI/ATR layer a noise filter back
-on top of that, they don't reverse it.
+"strong" (see 2026-09-03 change below), rolling DI (this side's DI above
+the preceding candle — no requirement the side already be dominant over
+the other, unlike a literal cross), and the currently forming candle
+definitely the same direction as the trade (red for SELL, green for
+BUY), and `scalp_armed` is currently True. RSI/ATR were removed
+2026-08-12, then RE-ADDED 2026-08-13 — data showed rolling-DI-alone fired
+on pure noise in choppy conditions (e.g. XAUUSD entries like "-DI 11.9
+rising vs prior 11.8"); user asked for ADX/RSI/ATR back as the noise
+filter. The literal DI cross stays removed — rolling DI catching a move
+before it fully crosses is still the intended earlier-entry design;
+ADX/RSI/ATR layer a noise filter back on top of that, they don't reverse
+it.
+
+**ATR removed again, 2026-09-03 (`cfg.SCALP_ATR_CHECK_ENABLED`, USA500/
+USA100/USA30/GBPUSD/USDJPY only)** — requested directly, mirroring Rule
+2's own entry condition (`evaluate_entry`'s `trend_ok`), which has never
+checked ATR at all: *"jaise hum ne with_trend mein ATR ka check nahi
+lagaya hoa usi tarah scalp ke andar se bhi ATR check remove karo."* ADX
+and RSI both stay, unconditionally, on every symbol — only the ATR leg of
+the 2026-08-13 fix above is now conditional (per-symbol flag read inside
+the shared `evaluate_entry`/`_check_rule6_gate` functions, `atr_strong`
+only actually enforced when the flag is True). Same flag also removes
+ATR from Rule 6's own re-arm confirmation below. XAUUSD keeps requiring
+it (default `True`, unaffected — frozen). No practical effect on
+GBPUSD/USDJPY since Rule 5/6 are already disabled there.
+
+**Flagged, not acted on**: while making this change, found that Rule 3
+(WITH_TREND TP hit)'s own re-arm gate (`_check_rule3_gate`) DOES check
+`atr_strong`, even though a fresh WITH_TREND entry (Rule 2) itself never
+has — the request's premise ("with_trend has no ATR check anywhere")
+isn't fully accurate for Rule 3 specifically. Left untouched (a separate
+locked rule, not named in this request) — surfaced for the user to decide
+separately.
 
 **Sizing:** SL = `max(ATR × 0.8, a per-symbol floor)` **except
 USA30/USA100/GBPUSD/USDJPY/XAUUSD** — all five now use a flat
@@ -793,13 +815,15 @@ explicitly excluded from trailing and could run to profit then give it
 all back; fixed 2026-08-11.
 
 **On TP hit (Rule 6):** does **not** re-arm immediately. Sets up its own
-gate — rolling DI (this side's DI above the preceding candle) AND the
-forming candle definitely the required color, checked live — before
-another same-direction scalp is allowed. Previously this re-armed
-same-candle, which is what caused the USA100 loss-after-TP found
-directly; then fixed via a rolling-DI+closed-candle gate; now Rule 6
-formalizes the clearing condition to match WITH_TREND's post-SL style
-(Rule 4), as its own fully independent mechanism.
+gate — ADX/DI/rolling-DI/RSI/ATR/candle, the same full confirmation set
+Rule 5's own entry uses (see `_check_rule6_gate` for the exact
+conditions) — before another same-direction scalp is allowed. Previously
+this re-armed same-candle, which is what caused the USA100 loss-after-TP
+found directly; then fixed via a rolling-DI+closed-candle gate; now
+Rule 6 formalizes the clearing condition to match WITH_TREND's post-SL
+style (Rule 4), as its own fully independent mechanism. **ATR dropped
+from this gate too, 2026-09-03, for USA500/USA100/USA30/GBPUSD/USDJPY**
+— same `SCALP_ATR_CHECK_ENABLED` flag as Rule 5 above; XAUUSD unaffected.
 
 **On SL hit → immediate reversal:** the bot tries the *opposite* direction
 once, right away, with a **tight (scalp-sized) SL regardless of direction**

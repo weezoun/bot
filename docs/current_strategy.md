@@ -71,6 +71,58 @@ one-entry-per-candle, margin gate. Tagged into the trade's `open_reason`
 as `"Rule 2: ..."` on every WITH_TREND entry via `evaluate_entry()`.
 Applies identically to all 6 symbols.
 
+**New check added across Rules 2/3/4/5/6/7, 2026-09-03 —
+`cfg.CONDITION_CHECK_ENABLED`, ALL 6 symbols.** Grew directly out of the
+same-day ATR removal/restoration discussion above. After the ATR history
+was reviewed (removed from Rule 5 once before, 2026-08-12, then restored
+2026-08-13 after real data — see each rule's own ATR note), the user
+asked a different question: how is `snap.condition` (NORMAL/RANGING/
+VOLATILE) actually calculated, and is it used anywhere? A full-codebase
+search before answering confirmed it was computed every tick in
+`strategy.build_snapshot` (VOLATILE if ATR > 1.2x its own 50-bar mean;
+else RANGING if the bar-to-bar price move is small relative to ATR,
+< 0.25x ATR; else NORMAL) but **never read by any rule at all** — purely
+a dashboard display value until this change.
+
+User's own words, once this was confirmed: *"ATR ki jagah yeh check hona
+chahiye, normal aur volatile ki surat mein trade allow, ranging ki surat
+mein trade block, aur yeh sub rules per apply hoga: 2,3,4,5,6,7 aur sub
+symbols ke liye."* This REPLACES the ATR idea with a different signal
+entirely — `ATR_CHECK_ENABLED` (above) is left exactly as it was (still
+`False` everywhere), this is a new, separate mechanism, not a
+repurposing of that flag.
+
+Implemented independently in each rule's own already-isolated code (zero
+shared function/state between them, same isolation boundary as every
+other gate in this project):
+- **Rule 2** (`evaluate_entry`'s `trend_ok`, both BUY/SELL): added
+  `snap.condition != 'RANGING'` alongside the existing ADX/DI/RSI/candle
+  checks.
+- **Rule 5** (`evaluate_entry`'s `scalp_ok`, both branches): same
+  addition.
+- **Rule 3** (`_check_rule3_gate`, both branches) and **Rule 6**
+  (`_check_rule6_gate`, both branches): same addition, alongside their
+  existing ADX/DI/rolling-DI/RSI/(ATR)/candle confirmation set.
+- **Rule 4** (`_check_rule4_gate`): gates the WHOLE clear — neither the
+  benchmark-cross fast path nor the rolling-DI+candle slow path matters
+  if `condition == 'RANGING'` at that moment.
+- **Rule 7's gated variant** (`_check_rule7_reversal_gate`, XAUUSD's own
+  redesign — see below): same whole-clear gating as Rule 4, since it was
+  deliberately copied from Rule 4's shape to begin with.
+- **Rule 7's classic path** (`_reverse_scalp`, the forced, zero-
+  confirmation immediate reversal still used by USA500/USA100/USA30 on a
+  loss-triggered scalp SL): a RANGING condition now skips the reversal
+  entirely, falling through to the same not-yet-formalized re-arm gate a
+  blocked/failed attempt already uses. This is the one path in the whole
+  project with literally no other confirmation of any kind, so this
+  check matters most here.
+
+Default `True`, applied uniformly — no per-symbol exception this round
+(unlike `ATR_CHECK_ENABLED`, no symbol sets this flag to `False`
+anywhere in `config.py`). Verified with a standalone test covering all
+six call sites: RANGING blocks each one, NORMAL and VOLATILE both allow
+each one, no MT5 connection made.
+
 **Rule 3 — WITH_TREND TP hit** (2026-08-12): existing gate mechanism
 confirmed correct as-is, plus one new check — the CURRENTLY FORMING
 candle must not be in the opposite direction from the previous candle.

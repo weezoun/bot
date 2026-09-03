@@ -131,6 +131,7 @@ class SymbolConfig:
         scalp_sl_profit_skip_reversal=False,
         scalp_sl_reversal_cooldown=False,
         atr_check_enabled=True,
+        condition_check_enabled=True,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -402,6 +403,40 @@ class SymbolConfig:
         # genuine moves ATR was filtering out too. Worth watching closely
         # against real data — including on XAUUSD now, despite its freeze.
         self.ATR_CHECK_ENABLED = atr_check_enabled
+        # CONDITION_CHECK_ENABLED, 2026-09-03 — user's own words: "ATR ki
+        # jagah yeh check hona chahiye, normal aur volatile ki surat mein
+        # trade allow, ranging ki surat mein trade block, aur yeh sub
+        # rules per apply hoga: 2,3,4,5,6,7 aur sub symbols k liye"
+        # (instead of ATR, use `snap.condition` — allow when NORMAL or
+        # VOLATILE, block when RANGING — applied to Rules 2/3/4/5/6/7, all
+        # 6 symbols). This REPLACES the ATR_CHECK_ENABLED idea above with
+        # a different signal entirely — `condition` was previously
+        # computed every tick but never read by any rule at all (confirmed
+        # by a full-codebase search before implementing this — it was
+        # display-only on the dashboard). `ATR_CHECK_ENABLED` above is left
+        # exactly as it is (still False everywhere) — this is a NEW,
+        # separate mechanism, not a rename/repurposing of that flag.
+        #
+        # `snap.condition`/`live_snap.condition` computed once per tick in
+        # strategy.build_snapshot: VOLATILE if current ATR > 1.2x its own
+        # 50-bar mean; else RANGING if the bar-to-bar price move is small
+        # relative to ATR (< 0.25x ATR); else NORMAL. RANGING is meant to
+        # catch genuinely directionless chop — the same kind of noise the
+        # ATR-strong check was originally trying to filter (2026-08-13),
+        # but read directly off price/ATR behavior instead of ATR's
+        # absolute level alone.
+        #
+        # Default `True` — applies to all 6 symbols uniformly, no
+        # per-symbol exception requested this round (unlike ATR_CHECK_
+        # ENABLED, no symbol sets this to `False` anywhere in this file).
+        # Each rule reads this independently, in its own already-isolated
+        # function (evaluate_entry's trend_ok/scalp_ok for Rule 2/5,
+        # _check_rule3_gate/_check_rule4_gate/_check_rule6_gate/
+        # _check_rule7_reversal_gate for Rule 3/4/6/7's gated variant, and
+        # _reverse_scalp for Rule 7's classic forced-reversal path) — zero
+        # shared state between them, same isolation boundary as every
+        # other gate in this project.
+        self.CONDITION_CHECK_ENABLED = condition_check_enabled
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR

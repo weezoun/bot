@@ -387,6 +387,8 @@ def _skip_scalp_sell_reason(snap: Snapshot, cfg) -> str:
         parts.append(f"RSI({snap.rsi:.1f}) not < {cfg.RSI_SCALP_SELL_MAX} (Rule 5)")
     if cfg.ATR_CHECK_ENABLED and not snap.atr_strong:
         parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f}) (Rule 5)")
+    if cfg.CONDITION_CHECK_ENABLED and snap.condition == 'RANGING':
+        parts.append("condition RANGING (Rule 5)")
     if not (snap.di_minus > snap.prev_di_minus):
         parts.append(f"-DI({snap.di_minus:.1f}) not rising vs prior candle ({snap.prev_di_minus:.1f}) (Rule 5)")
     if not _bearish_candle(snap):
@@ -404,6 +406,8 @@ def _skip_scalp_buy_reason(snap: Snapshot, cfg) -> str:
         parts.append(f"RSI({snap.rsi:.1f}) not > {cfg.RSI_SCALP_BUY_MIN} (Rule 5)")
     if cfg.ATR_CHECK_ENABLED and not snap.atr_strong:
         parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f}) (Rule 5)")
+    if cfg.CONDITION_CHECK_ENABLED and snap.condition == 'RANGING':
+        parts.append("condition RANGING (Rule 5)")
     if not (snap.di_plus > snap.prev_di_plus):
         parts.append(f"+DI({snap.di_plus:.1f}) not rising vs prior candle ({snap.prev_di_plus:.1f}) (Rule 5)")
     if not _bullish_candle(snap):
@@ -466,6 +470,8 @@ def _skip_trend_buy_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     ceiling = _rsi_buy_ceiling(snap, cfg)
     if snap.rsi < 40 or snap.rsi > ceiling:
         parts.append(f"RSI({snap.rsi:.1f}) outside 40–{ceiling:.0f} (ADX {snap.adx:.1f})")
+    if cfg.CONDITION_CHECK_ENABLED and snap.condition == 'RANGING':
+        parts.append("condition RANGING")
     if not _bullish_candle(closed_snap):
         parts.append("last CLOSED candle not green")
     if _bearish_candle(snap):
@@ -492,6 +498,8 @@ def _skip_trend_sell_reason(snap: Snapshot, closed_snap: Snapshot, cfg,
     floor = _rsi_sell_floor(snap, cfg)
     if snap.rsi < floor or snap.rsi > 60:
         parts.append(f"RSI({snap.rsi:.1f}) outside {floor:.0f}–60 (ADX {snap.adx:.1f})")
+    if cfg.CONDITION_CHECK_ENABLED and snap.condition == 'RANGING':
+        parts.append("condition RANGING")
     if not _bearish_candle(closed_snap):
         parts.append("last CLOSED candle not red")
     if _bullish_candle(snap):
@@ -588,6 +596,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and snap.adx >= cfg.ADX_MIN
             and snap.rsi < cfg.RSI_SCALP_SELL_MAX
             and (snap.atr_strong or not cfg.ATR_CHECK_ENABLED)
+            and (snap.condition != 'RANGING' or not cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
             and snap.di_minus > snap.prev_di_minus   # Rule 5: rolling DI
             and _bearish_candle(snap)              # Rule 5: forming candle same direction (red)
             and scalp_allowed
@@ -624,6 +633,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and snap.di_plus > snap.di_minus
             and snap.rsi <= _rsi_buy_ceiling(snap, cfg)
             and snap.rsi >= 40
+            and (snap.condition != 'RANGING' or not cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
             and _bullish_candle(closed_snap)          # last CLOSED candle: same direction (Rule 2)
             and not _bearish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'BUY')  # presence check only
@@ -659,6 +669,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and snap.adx >= cfg.ADX_MIN
             and snap.rsi > cfg.RSI_SCALP_BUY_MIN
             and (snap.atr_strong or not cfg.ATR_CHECK_ENABLED)
+            and (snap.condition != 'RANGING' or not cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
             and snap.di_plus > snap.prev_di_plus     # Rule 5: rolling DI
             and _bullish_candle(snap)              # Rule 5: forming candle same direction (green)
             and scalp_allowed
@@ -685,6 +696,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             and snap.di_minus > snap.di_plus
             and snap.rsi >= _rsi_sell_floor(snap, cfg)
             and snap.rsi <= 60
+            and (snap.condition != 'RANGING' or not cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
             and _bearish_candle(closed_snap)          # last CLOSED candle: same direction (Rule 2)
             and not _bullish_candle(snap)              # forming candle: not opposite direction (Rule 2)
             and not (rule3_gate and rule3_gate.get('side') == 'SELL')  # presence check only

@@ -977,6 +977,7 @@ class SymbolBot:
                 and live_snap.di_plus > live_snap.prev_di_plus       # rolling DI
                 and live_snap.rsi > self.cfg.RSI_SCALP_BUY_MIN
                 and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
+                and (live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
                 and _bullish_candle(live_snap)                        # forming candle definitely green
             )
         else:
@@ -986,6 +987,7 @@ class SymbolBot:
                 and live_snap.di_minus > live_snap.prev_di_minus     # rolling DI
                 and live_snap.rsi < self.cfg.RSI_SCALP_SELL_MAX
                 and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
+                and (live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
                 and _bearish_candle(live_snap)                        # forming candle definitely red
             )
         if cleared:
@@ -993,7 +995,7 @@ class SymbolBot:
             self.state.scalp_armed = True
             atr_part = "ATR" if self.cfg.ATR_CHECK_ENABLED else "ATR-check-disabled"
             self.state.log(
-                f"Rule 6 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/candle all confirmed "
+                f"Rule 6 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/condition/candle all confirmed "
                 f"(same-candle re-arm now allowed once confirmed)"
             )
 
@@ -1053,7 +1055,15 @@ class SymbolBot:
         ATR is now only actually enforced when this flag is True — same
         flag Rule 5/6 read (see config.py's own comment for the full
         history of how its scope grew same day). ADX/DI/rolling-DI/RSI/
-        candle-color all stay, unconditionally."""
+        candle-color all stay, unconditionally.
+
+        CHANGED AGAIN, same day (cfg.CONDITION_CHECK_ENABLED, Rules
+        2/3/4/5/6/7, all 6 symbols): user asked to replace the ATR idea
+        with a different signal entirely — `live_snap.condition` (NORMAL/
+        RANGING/VOLATILE, already computed every tick in
+        strategy.build_snapshot but never read by any rule before this).
+        Allow when NORMAL or VOLATILE, block when RANGING. See config.py's
+        own comment on this flag for the full REASON/IMPACT."""
         gate = self.state.rule3_gate
         if not gate:
             return
@@ -1066,6 +1076,7 @@ class SymbolBot:
                 and live_snap.rsi <= _rsi_buy_ceiling(live_snap, self.cfg)
                 and live_snap.rsi >= 40
                 and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
+                and (live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
                 and _bullish_candle(live_snap)                      # forming candle definitely green
             )
         else:
@@ -1076,13 +1087,14 @@ class SymbolBot:
                 and live_snap.rsi >= _rsi_sell_floor(live_snap, self.cfg)
                 and live_snap.rsi <= 60
                 and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
+                and (live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED)  # 2026-09-03
                 and _bearish_candle(live_snap)                      # forming candle definitely red
             )
         if cleared:
             self.state.rule3_gate = None
             atr_part = "ATR" if self.cfg.ATR_CHECK_ENABLED else "ATR-check-disabled"
             self.state.log(
-                f"Rule 3 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/candle all confirmed "
+                f"Rule 3 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/condition/candle all confirmed "
                 f"(same-candle re-entry now allowed once confirmed)"
             )
 
@@ -1143,7 +1155,14 @@ class SymbolBot:
             slow_path = live_snap.di_plus > live_snap.prev_di_plus and live_snap.close > live_snap.open
         else:
             slow_path = live_snap.di_minus > live_snap.prev_di_minus and live_snap.close < live_snap.open
-        if benchmark_crossed or slow_path:
+        # CONDITION_CHECK_ENABLED, 2026-09-03 (Rules 2/3/4/5/6/7, all 6
+        # symbols) — requested directly, replacing the ATR idea entirely
+        # with `live_snap.condition` (NORMAL/RANGING/VOLATILE): allow when
+        # NORMAL or VOLATILE, block when RANGING. Gates the WHOLE clear —
+        # neither path above matters if the market is currently RANGING.
+        # See config.py's own comment on this flag for the full REASON.
+        condition_ok = live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED
+        if (benchmark_crossed or slow_path) and condition_ok:
             self.state.rule4_gate = None
             reason = f"DI {current_di:.1f} crossed benchmark {gate['benchmark']:.1f}" if benchmark_crossed \
                 else f"rolling DI rising + forming candle definitely {'green' if side == 'BUY' else 'red'}"
@@ -1191,7 +1210,12 @@ class SymbolBot:
             slow_path = live_snap.di_plus > live_snap.prev_di_plus and live_snap.close > live_snap.open
         else:
             slow_path = live_snap.di_minus > live_snap.prev_di_minus and live_snap.close < live_snap.open
-        if benchmark_crossed or slow_path:
+        # CONDITION_CHECK_ENABLED, 2026-09-03 (Rules 2/3/4/5/6/7, all 6
+        # symbols) — same as Rule 4's own addition, see that function's
+        # comment for the full REASON; config.py's own comment on this
+        # flag has the complete history.
+        condition_ok = live_snap.condition != 'RANGING' or not self.cfg.CONDITION_CHECK_ENABLED
+        if (benchmark_crossed or slow_path) and condition_ok:
             self.state.rule7_reversal_gate = None
             reason = f"DI {current_di:.1f} crossed benchmark {gate['benchmark']:.1f}" if benchmark_crossed \
                 else f"rolling DI rising + forming candle definitely {'green' if side == 'BUY' else 'red'}"
@@ -1239,6 +1263,17 @@ class SymbolBot:
             return
         if not self.should_take_trade():
             self._rearm_scalp_after_sl_no_reversal(closed_side, live_snap, trigger="Scalp SL (reversal skipped — insufficient margin)")
+            return
+        # CONDITION_CHECK_ENABLED, 2026-09-03 (Rules 2/3/4/5/6/7, all 6
+        # symbols) — requested directly, replacing the ATR idea entirely
+        # with live_snap.condition (NORMAL/RANGING/VOLATILE): allow when
+        # NORMAL or VOLATILE, block when RANGING. This is Rule 7's own
+        # forced, zero-confirmation reversal — the one path in this whole
+        # project with NO other confirmation at all, so a RANGING market
+        # blocking it here matters most of anywhere. See config.py's own
+        # comment on this flag for the full REASON/IMPACT.
+        if self.cfg.CONDITION_CHECK_ENABLED and live_snap.condition == 'RANGING':
+            self._rearm_scalp_after_sl_no_reversal(closed_side, live_snap, trigger="Scalp SL (reversal skipped — condition RANGING)")
             return
         opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
         mode, _sl, _tp, _trail = classify_side(opposite, live_snap, self.cfg)

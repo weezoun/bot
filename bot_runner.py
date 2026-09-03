@@ -699,7 +699,7 @@ class SymbolBot:
             # regardless of profit/loss — gates ONLY the reversal side,
             # same shape as Rule 4, no other mechanism involved.
             elif self.cfg.SCALP_SL_REVERSAL_COOLDOWN:
-                self._gate_scalp_reversal(side, live_snap)
+                self._gate_scalp_reversal(side, live_snap, profit)
             else:
                 self._reverse_scalp(side, live_snap)
         elif cfg.SL_COOLDOWN_UNTIL_NEXT_CANDLE:
@@ -900,7 +900,7 @@ class SymbolBot:
             f"(same re-arm as Rule 6's own TP outcome, same candle allowed once confirmed)"
         )
 
-    def _gate_scalp_reversal(self, closed_side: str, live_snap):
+    def _gate_scalp_reversal(self, closed_side: str, live_snap, profit: float):
         """XAUUSD only (cfg.SCALP_SL_REVERSAL_COOLDOWN), added 2026-09-02
         — see that flag's own comment in config.py for the full REASON/
         IMPACT.
@@ -917,33 +917,60 @@ class SymbolBot:
         and ONLY Rule 4's, gets copied into Rule 7 for both a loss- and a
         profit-closed scalp SL alike). No Rule 6 involvement at all now.
 
+        CORRECTED AGAIN, 2026-09-03: the cooldown floor was being applied
+        UNCONDITIONALLY (sl_time always time.time()), regardless of
+        profit/loss — flagged (found via a note from another session
+        working on a different codebase, then confirmed here directly)
+        that this doesn't match Rule 4's own actual pattern, which the
+        user had explicitly said to copy: Rule 4 skips its floor entirely
+        on a profit-close (`sl_time = None`), since a successful trailing
+        exit isn't a failed entry needing a rapid-re-entry guard — only an
+        actual LOSS gets the floor. Original reasoning here ("this gate is
+        about the REVERSAL side, which never itself closed, so there's no
+        equivalent case to skip for") held while this flag was loss-only,
+        but stopped holding once profit-triggered closes were included
+        too. User confirmed: "isay Rule 4 ke pattern se match karo (profit
+        = no cooldown, loss = cooldown)." `sl_time` now mirrors Rule 4's
+        own line exactly: `time.time() if profit < 0 else None`.
+
         Replaces the old immediate, zero-confirmation `_reverse_scalp()`
         call (for XAUUSD) with a single isolated gate, `rule7_reversal_
         gate` — same shape as rule4_gate (own dedicated field +
         _check_rule7_reversal_gate, zero shared state with rule4_gate
         itself): blocks a fresh WITH_TREND entry on the REVERSAL (opposite)
-        side only, until RULE4_MIN_COOLDOWN_SECONDS have passed AND EITHER
-        that side's DI crosses its own benchmark OR rolling DI + forming
-        candle color confirm — exactly Rule 4's own two clearing paths,
-        copied. This gate does NOT force a trade — it only lifts a block;
-        if a genuine signal exists on that side once unblocked, the bot's
-        own normal decide() logic takes it from there, exactly like
-        Rule 4. The scalp's own original side is not this gate's concern
-        at all — nothing here touches it, in either direction."""
+        side only, until RULE4_MIN_COOLDOWN_SECONDS have passed (loss only
+        — skipped entirely on a profit-close, see above) AND EITHER that
+        side's DI crosses its own benchmark OR rolling DI + forming candle
+        color confirm — exactly Rule 4's own two clearing paths, copied.
+        This gate does NOT force a trade — it only lifts a block; if a
+        genuine signal exists on that side once unblocked, the bot's own
+        normal decide() logic takes it from there, exactly like Rule 4.
+        The scalp's own original side is not this gate's concern at all —
+        nothing here touches it, in either direction."""
         opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
+        sl_time = time.time() if profit < 0 else None
         self.state.rule7_reversal_gate = {
             'side': opposite,
             'benchmark': _relevant_di(opposite, live_snap),
-            'sl_time': time.time(),
+            'sl_time': sl_time,
         }
         label = '-DI' if opposite == 'SELL' else '+DI'
         candle_word = 'green' if opposite == 'BUY' else 'red'
-        self.state.log(
-            f"Rule 7 (XAUUSD): Scalp SL ({closed_side}) — no immediate reversal. "
-            f"{opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, THEN "
-            f"EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR "
-            f"rolling {label} rising + forming candle definitely {candle_word}"
-        )
+        if sl_time is not None:
+            self.state.log(
+                f"Rule 7 (XAUUSD): Scalp SL ({closed_side}, loss {profit:+.2f}) — no immediate "
+                f"reversal. {opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, "
+                f"THEN EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} "
+                f"(benchmark) OR rolling {label} rising + forming candle definitely {candle_word}"
+            )
+        else:
+            self.state.log(
+                f"Rule 7 (XAUUSD): Scalp SL ({closed_side}, trailing profit {profit:+.2f}) — no "
+                f"immediate reversal — no minimum-wait cooldown (closed in profit, not a loss). "
+                f"{opposite}-side needs EITHER {label} crossing "
+                f"{self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR rolling {label} "
+                f"rising + forming candle definitely {candle_word}"
+            )
 
     def _check_rule6_gate(self, live_snap):
         """Rule 6 (Scalp TP hit) — self-contained clearing check. Fully
@@ -1187,11 +1214,17 @@ class SymbolBot:
         copied into Rule 7 for both a loss- and a profit-closed scalp SL).
 
         Same cooldown floor (cfg.RULE4_MIN_COOLDOWN_SECONDS, read-only
-        constant reuse — not shared state) applies unconditionally here —
-        unlike Rule 4 (which skips the floor on a profit-close, since
-        there it's a successful trailing exit, not a failed entry), this
-        gate is about the REVERSAL side, which was never the position that
-        actually closed, so there's no equivalent case to skip it for.
+        constant reuse — not shared state) — and, CORRECTED 2026-09-03,
+        the SAME conditionality as Rule 4's own: `gate['sl_time']` is
+        `None` for a profit-closed scalp SL (set in _gate_scalp_reversal),
+        skipping this floor entirely and falling straight through to the
+        two clearing paths below; only an actual LOSS gets the floor.
+        Originally applied unconditionally here — reasoned at the time
+        that "this gate is about the REVERSAL side, which was never the
+        position that actually closed, so there's no equivalent case to
+        skip it for," but that stopped holding once profit-triggered
+        closes were included in this mechanism too (see
+        _gate_scalp_reversal's own docstring for the full correction).
         Clears via EITHER of two independent paths, whichever comes first:
         1. FAST: the gated (reversal) side's DI crosses back above
            `gate['benchmark']` (captured at the moment of the scalp SL).
@@ -1208,9 +1241,10 @@ class SymbolBot:
         gate = self.state.rule7_reversal_gate
         if not gate:
             return
-        elapsed = time.time() - gate['sl_time']
-        if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
-            return  # still inside the minimum cooldown — neither path checked yet
+        if gate['sl_time'] is not None:
+            elapsed = time.time() - gate['sl_time']
+            if elapsed < cfg.RULE4_MIN_COOLDOWN_SECONDS:
+                return  # still inside the minimum cooldown — neither path checked yet
         side = gate['side']
         current_di = _relevant_di(side, live_snap)
         benchmark_crossed = current_di > gate['benchmark']

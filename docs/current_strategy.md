@@ -667,6 +667,25 @@ both clearing paths, and side-scoping all behave independently of
 `rule3_gate`/`rule4_gate`) before deploying — no MT5 connection made.
 `False` (default, no effect) for every other symbol.
 
+**Corrected again, 2026-09-03 — the cooldown floor now matches Rule 4's
+own profit/loss conditionality, not just its shape.** The floor
+(`RULE4_MIN_COOLDOWN_SECONDS`) had been applied UNCONDITIONALLY in
+`_gate_scalp_reversal` (`sl_time` always `time.time()`), reasoned at the
+time as: "this gate is about the REVERSAL side, which was never the
+position that actually closed, so there's no equivalent case to skip it
+for." That reasoning held while the flag was loss-only, but stopped
+holding once profit-triggered closes were folded into the same mechanism
+(see the correction above) — flagged by a note from another session,
+confirmed directly, and corrected on the user's explicit instruction:
+*"isay Rule 4 ke pattern se match karo (profit = no cooldown, loss =
+cooldown)."* `sl_time` now mirrors Rule 4's own line exactly —
+`time.time() if profit < 0 else None` — and `_check_rule7_reversal_gate`
+skips the floor entirely when `sl_time is None`, falling straight
+through to the two clearing paths, exactly like `_check_rule4_gate`
+does. Verified with a standalone test: a profit-closed scalp SL clears
+the gate immediately once DI/candle confirm (no wait), a loss-closed one
+still waits the full floor even when DI/candle already confirm.
+
 ---
 
 Two systems per symbol — WITH_TREND and COUNTER_SCALP (scalp) — both driven

@@ -129,4 +129,10 @@ mechanism added there in the final design).
 
 ## Next version
 
-(none yet)
+[v2.22](../v2.22/NOTES.md) — ATR check removed further (Rule 3, then all
+6 symbols); a brand-new condition-based check (block on RANGING) added
+across Rules 2-7, all 6 symbols; GBPUSD/USDJPY realigned to indices
+(Rule 5/6/7/FLIP re-enabled, given Gold's own Rule 7 mechanism); and a
+real bug found live in this version's own Rule 7 redesign — the scalp's
+own side had no re-arm path at all — fixed by reusing Rule 6's real
+confirmation gate.

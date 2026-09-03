@@ -957,13 +957,25 @@ class SymbolBot:
         `scalp_armed` (set False the moment ANY scalp opens) could only
         ever come back via a full DI-regime flip — "can take a long time
         or never happen," exactly the class of bug this project's history
-        has hit before (Rule 6/7's own original design). User confirmed
-        the fix directly: re-arm `scalp_armed` immediately here, no extra
-        gate — Rule 5's own entry conditions (ADX/RSI/rolling-DI/candle/
-        condition-not-RANGING) are the safety net, not a dedicated wait.
-        This is Rule 7's own trigger function ALSO doing this one extra
-        thing now — Rule 7's own reversal-side gate above is completely
-        unaffected/unchanged by this addition."""
+        has hit before (Rule 6/7's own original design).
+
+        First attempt (same day, also corrected): re-armed `scalp_armed`
+        immediately, no gate at all. User caught this as wrong too — Rule
+        6 has NEVER been an unconditional auto-re-arm (it's required full
+        ADX/DI/rolling-DI/RSI/candle confirmation since 2026-08-13,
+        specifically to avoid chasing an already-exhausted move — the
+        original USA100 2026-08-11 incident). The scalp's own side re-arm
+        here should use that SAME real, confirmation-gated mechanism —
+        not skip confirmation entirely. Final fix: reuse
+        `scalp_continuation_gate`/`_check_rule6_gate` verbatim, UNCHANGED
+        — identical to how indices' `_rearm_scalp_after_profit_sl` already
+        does it. This does NOT reopen the earlier "no Rule 6 link"
+        correction — that was specifically about Rule 7's own REVERSAL-
+        gating logic (`rule7_reversal_gate`, which stays 100% Rule-4-
+        shaped, no Rule 6 involvement); this is the separate, scalp's-
+        own-side concern, which was always going to need SOME re-arm
+        path and naturally reuses Rule 6's own, proven one, same as
+        indices' precedent."""
         opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
         sl_time = time.time() if profit < 0 else None
         self.state.rule7_reversal_gate = {
@@ -971,16 +983,22 @@ class SymbolBot:
             'benchmark': _relevant_di(opposite, live_snap),
             'sl_time': sl_time,
         }
-        self.state.scalp_armed = True
+        self.state.scalp_continuation_gate = {'side': closed_side, 'bar_time': live_snap.bar_time}
         label = '-DI' if opposite == 'SELL' else '+DI'
         candle_word = 'green' if opposite == 'BUY' else 'red'
+        orig_label = '-DI' if closed_side == 'SELL' else '+DI'
+        orig_candle_word = 'green' if closed_side == 'BUY' else 'red'
+        rearm_note = (
+            f"{closed_side}-side re-arms via ADX/RSI/ATR/{orig_label} rising/forming candle "
+            f"definitely {orig_candle_word} (same as Rule 6's own TP outcome)"
+        )
         if sl_time is not None:
             self.state.log(
                 f"Rule 7: Scalp SL ({closed_side}, loss {profit:+.2f}) — no immediate "
                 f"reversal. {opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, "
                 f"THEN EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} "
                 f"(benchmark) OR rolling {label} rising + forming candle definitely {candle_word}; "
-                f"{closed_side}-side scalp re-armed immediately (Rule 5's own entry checks apply)"
+                f"{rearm_note}"
             )
         else:
             self.state.log(
@@ -989,7 +1007,7 @@ class SymbolBot:
                 f"{opposite}-side needs EITHER {label} crossing "
                 f"{self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR rolling {label} "
                 f"rising + forming candle definitely {candle_word}; "
-                f"{closed_side}-side scalp re-armed immediately (Rule 5's own entry checks apply)"
+                f"{rearm_note}"
             )
 
     def _check_rule6_gate(self, live_snap):

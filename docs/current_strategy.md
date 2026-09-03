@@ -698,15 +698,23 @@ this project's history has hit before, on Rule 6/7's own original
 design). Spotted live: the dashboard kept showing "already scalped this
 DI regime" on Gold long after `condition` itself had moved on from
 RANGING to NORMAL — the real blocker was `scalp_armed`, not `condition`
-at all. Fixed directly in `_gate_scalp_reversal`: `scalp_armed = True`
-set immediately, unconditionally, no dedicated gate — Rule 5's own entry
-conditions (ADX/RSI/rolling-DI/candle/condition-not-RANGING) are the
-safety net against chasing a bad move, not a wait, per the user's own
-explicit choice between the two options offered. This is one extra line
-in Rule 7's own trigger function; the reversal-side gate itself
-(`rule7_reversal_gate`/`_check_rule7_reversal_gate`) is completely
-unaffected — verified with a standalone test covering both the loss and
-profit cases.
+at all. First attempt (same day, also corrected): re-armed `scalp_armed`
+immediately in `_gate_scalp_reversal`, no gate at all. Caught as wrong
+too — Rule 6 has NEVER been an unconditional auto-re-arm (it's required
+full ADX/DI/rolling-DI/RSI/candle confirmation since 2026-08-13,
+specifically to avoid chasing an already-exhausted move — the original
+USA100 2026-08-11 incident that motivated Rule 6's whole design). FINAL
+fix: reuse `scalp_continuation_gate`/`_check_rule6_gate` verbatim,
+UNCHANGED — identical to how indices' `_rearm_scalp_after_profit_sl`
+already does it. This does NOT reopen the "no Rule 6 involvement"
+correction above — that was specifically about Rule 7's own REVERSAL-
+gating logic (`rule7_reversal_gate`/`_check_rule7_reversal_gate`, which
+stays 100% Rule-4-shaped, untouched); this is the separate, scalp's-own-
+side concern, which naturally reuses Rule 6's own proven mechanism, same
+as indices' precedent. Verified with a standalone test: a weak/
+unconfirmed setup correctly leaves scalp disarmed (real confirmation
+still required, not a rubber stamp), a strong/confirmed setup clears the
+gate and re-arms `scalp_armed`, exactly like Rule 6's own TP outcome.
 
 ---
 

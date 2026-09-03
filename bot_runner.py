@@ -965,7 +965,15 @@ class SymbolBot:
         matching change (see strategy.evaluate_entry's own comment for the
         full REASON/IMPACT/history, including how this flag's scope grew
         same day): ATR is now only actually enforced when this flag is
-        True. ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally."""
+        True. ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally.
+
+        CHANGED AGAIN, same day (cfg.CONDITION_CHECK_ENABLED, Rules
+        2/3/4/5/6/7, all 6 symbols): user asked to replace the ATR idea
+        with a different signal entirely — `live_snap.condition` (NORMAL/
+        RANGING/VOLATILE, already computed every tick in
+        strategy.build_snapshot but never read by any rule before this).
+        Allow when NORMAL or VOLATILE, block when RANGING. See config.py's
+        own comment on this flag for the full REASON/IMPACT."""
         gate = self.state.scalp_continuation_gate
         if not gate:
             return

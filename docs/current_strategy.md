@@ -686,6 +686,28 @@ does. Verified with a standalone test: a profit-closed scalp SL clears
 the gate immediately once DI/candle confirm (no wait), a loss-closed one
 still waits the full floor even when DI/candle already confirm.
 
+**Real gap found and fixed, 2026-09-04 — the scalp's own original side
+had NO re-arm path left at all.** Once Rule 6's linkage was removed from
+`_gate_scalp_reversal` (the "no Rule 6 involvement" correction above),
+nothing was left to re-arm `scalp_armed` on this path — it's set `False`
+the instant any scalp opens, and with only Rule 4's own gate-setting
+copied over (which never touches `scalp_armed` — Rule 4 has no scalp
+concept at all), the ONLY remaining way back was a full DI-regime flip,
+which "can take a long time or never happen" (the same class of bug
+this project's history has hit before, on Rule 6/7's own original
+design). Spotted live: the dashboard kept showing "already scalped this
+DI regime" on Gold long after `condition` itself had moved on from
+RANGING to NORMAL — the real blocker was `scalp_armed`, not `condition`
+at all. Fixed directly in `_gate_scalp_reversal`: `scalp_armed = True`
+set immediately, unconditionally, no dedicated gate — Rule 5's own entry
+conditions (ADX/RSI/rolling-DI/candle/condition-not-RANGING) are the
+safety net against chasing a bad move, not a wait, per the user's own
+explicit choice between the two options offered. This is one extra line
+in Rule 7's own trigger function; the reversal-side gate itself
+(`rule7_reversal_gate`/`_check_rule7_reversal_gate`) is completely
+unaffected — verified with a standalone test covering both the loss and
+profit cases.
+
 ---
 
 Two systems per symbol — WITH_TREND and COUNTER_SCALP (scalp) — both driven

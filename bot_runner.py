@@ -947,8 +947,23 @@ class SymbolBot:
         This gate does NOT force a trade — it only lifts a block; if a
         genuine signal exists on that side once unblocked, the bot's own
         normal decide() logic takes it from there, exactly like Rule 4.
-        The scalp's own original side is not this gate's concern at all —
-        nothing here touches it, in either direction."""
+
+        CORRECTED 2026-09-04 (real gap found live, via the dashboard
+        showing "already scalped this DI regime" stuck on Gold long after
+        `condition` itself had moved on from RANGING to NORMAL): the
+        original version of this function set ONLY `rule7_reversal_gate`
+        — the scalp's own original side had NO re-arm path left at all
+        once Rule 6's linkage was removed (round 2's correction), meaning
+        `scalp_armed` (set False the moment ANY scalp opens) could only
+        ever come back via a full DI-regime flip — "can take a long time
+        or never happen," exactly the class of bug this project's history
+        has hit before (Rule 6/7's own original design). User confirmed
+        the fix directly: re-arm `scalp_armed` immediately here, no extra
+        gate — Rule 5's own entry conditions (ADX/RSI/rolling-DI/candle/
+        condition-not-RANGING) are the safety net, not a dedicated wait.
+        This is Rule 7's own trigger function ALSO doing this one extra
+        thing now — Rule 7's own reversal-side gate above is completely
+        unaffected/unchanged by this addition."""
         opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
         sl_time = time.time() if profit < 0 else None
         self.state.rule7_reversal_gate = {
@@ -956,6 +971,7 @@ class SymbolBot:
             'benchmark': _relevant_di(opposite, live_snap),
             'sl_time': sl_time,
         }
+        self.state.scalp_armed = True
         label = '-DI' if opposite == 'SELL' else '+DI'
         candle_word = 'green' if opposite == 'BUY' else 'red'
         if sl_time is not None:
@@ -963,7 +979,8 @@ class SymbolBot:
                 f"Rule 7: Scalp SL ({closed_side}, loss {profit:+.2f}) — no immediate "
                 f"reversal. {opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, "
                 f"THEN EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} "
-                f"(benchmark) OR rolling {label} rising + forming candle definitely {candle_word}"
+                f"(benchmark) OR rolling {label} rising + forming candle definitely {candle_word}; "
+                f"{closed_side}-side scalp re-armed immediately (Rule 5's own entry checks apply)"
             )
         else:
             self.state.log(
@@ -971,7 +988,8 @@ class SymbolBot:
                 f"immediate reversal — no minimum-wait cooldown (closed in profit, not a loss). "
                 f"{opposite}-side needs EITHER {label} crossing "
                 f"{self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR rolling {label} "
-                f"rising + forming candle definitely {candle_word}"
+                f"rising + forming candle definitely {candle_word}; "
+                f"{closed_side}-side scalp re-armed immediately (Rule 5's own entry checks apply)"
             )
 
     def _check_rule6_gate(self, live_snap):

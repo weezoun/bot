@@ -100,6 +100,15 @@ confirmation failing (e.g. RSI too extended) keeps the gate active even
 mid-candle; full confirmation clears it immediately, same bar_time as the
 TP. Applies identically to all 6 symbols.
 
+**ATR removed from this gate, 2026-09-03 (`cfg.ATR_CHECK_ENABLED`, ALL 6
+symbols)** — found while implementing a Rule 5/6 ATR-removal request
+(this gate was the one WITH_TREND-family check that DID check ATR, even
+though a fresh Rule 2 entry never has); flagged to the user, then
+explicitly asked to be included: *"rule 3 se bhi remove karo."* Same
+flag Rule 5/6 read (see the Scalp section's own "ATR removed again" note
+for the full history of how its scope grew same day, including XAUUSD's
+inclusion). ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally.
+
 **Rule 4 — WITH_TREND SL hit** (2026-08-12): trade recorded to history
 (close_reason label — see note below on trailed-into-profit closes).
 First, on the SAME candle the SL happened: ALL new entries blocked —
@@ -776,26 +785,38 @@ before it fully crosses is still the intended earlier-entry design;
 ADX/RSI/ATR layer a noise filter back on top of that, they don't reverse
 it.
 
-**ATR removed again, 2026-09-03 (`cfg.SCALP_ATR_CHECK_ENABLED`, USA500/
-USA100/USA30/GBPUSD/USDJPY only)** — requested directly, mirroring Rule
-2's own entry condition (`evaluate_entry`'s `trend_ok`), which has never
-checked ATR at all: *"jaise hum ne with_trend mein ATR ka check nahi
-lagaya hoa usi tarah scalp ke andar se bhi ATR check remove karo."* ADX
-and RSI both stay, unconditionally, on every symbol — only the ATR leg of
-the 2026-08-13 fix above is now conditional (per-symbol flag read inside
-the shared `evaluate_entry`/`_check_rule6_gate` functions, `atr_strong`
-only actually enforced when the flag is True). Same flag also removes
-ATR from Rule 6's own re-arm confirmation below. XAUUSD keeps requiring
-it (default `True`, unaffected — frozen). No practical effect on
-GBPUSD/USDJPY since Rule 5/6 are already disabled there.
+**ATR removed again, 2026-09-03 (`cfg.ATR_CHECK_ENABLED`, ALL 6 symbols
+now)** — requested directly, mirroring Rule 2's own entry condition
+(`evaluate_entry`'s `trend_ok`), which has never checked ATR at all:
+*"jaise hum ne with_trend mein ATR ka check nahi lagaya hoa usi tarah
+scalp ke andar se bhi ATR check remove karo."* ADX and RSI both stay,
+unconditionally, on every symbol — only the ATR leg of the 2026-08-13 fix
+above is now conditional (per-symbol flag read inside the shared
+`evaluate_entry`/`_check_rule6_gate`/`_check_rule3_gate` functions,
+`atr_strong` only actually enforced when the flag is True). Same flag
+also removes ATR from Rule 6's own re-arm confirmation below and Rule 3's
+(see that rule's own section) — no practical effect on GBPUSD/USDJPY's
+Rule 5/6 specifically (already disabled there), but Rule 3 IS active on
+GBPUSD/USDJPY, so it does have a real effect there too.
 
-**Flagged, not acted on**: while making this change, found that Rule 3
-(WITH_TREND TP hit)'s own re-arm gate (`_check_rule3_gate`) DOES check
-`atr_strong`, even though a fresh WITH_TREND entry (Rule 2) itself never
-has — the request's premise ("with_trend has no ATR check anywhere")
-isn't fully accurate for Rule 3 specifically. Left untouched (a separate
-locked rule, not named in this request) — surfaced for the user to decide
-separately.
+**Scope grew twice, same day.** Originally scoped to USA500/USA100/USA30/
+GBPUSD/USDJPY only (named `SCALP_ATR_CHECK_ENABLED`), XAUUSD frozen and
+not yet named. Two follow-ups, same session:
+1. **Rule 3 included** — while making the original change, found Rule 3
+   (WITH_TREND TP hit)'s own re-arm gate (`_check_rule3_gate`) DID check
+   `atr_strong`, even though a fresh WITH_TREND entry (Rule 2) itself
+   never has — the request's premise ("with_trend has no ATR check
+   anywhere") wasn't fully accurate for Rule 3 specifically. Flagged to
+   the user, who confirmed: *"rule 3 se bhi remove karo."*
+2. **XAUUSD included** — user separately named it explicitly: *"xauusd
+   per bhi apply karo"* — exempting this specific change from the
+   standing 2026-08-29 freeze (which only skips changes the user does
+   NOT name). XAUUSD's own `atr_check_enabled=False` set directly in its
+   config block, same as the other 5.
+
+Flag renamed accordingly (`SCALP_ATR_CHECK_ENABLED` → `ATR_CHECK_ENABLED`
+— dropped "SCALP", would be misleading now that a WITH_TREND rule reads
+it too).
 
 **Sizing:** SL = `max(ATR × 0.8, a per-symbol floor)` **except
 USA30/USA100/GBPUSD/USDJPY/XAUUSD** — all five now use a flat
@@ -822,8 +843,9 @@ this re-armed same-candle, which is what caused the USA100 loss-after-TP
 found directly; then fixed via a rolling-DI+closed-candle gate; now
 Rule 6 formalizes the clearing condition to match WITH_TREND's post-SL
 style (Rule 4), as its own fully independent mechanism. **ATR dropped
-from this gate too, 2026-09-03, for USA500/USA100/USA30/GBPUSD/USDJPY**
-— same `SCALP_ATR_CHECK_ENABLED` flag as Rule 5 above; XAUUSD unaffected.
+from this gate too, 2026-09-03, for ALL 6 symbols** — same
+`cfg.ATR_CHECK_ENABLED` flag as Rule 5 above (see that section for the
+full history of how its scope grew same day).
 
 **On SL hit → immediate reversal:** the bot tries the *opposite* direction
 once, right away, with a **tight (scalp-sized) SL regardless of direction**

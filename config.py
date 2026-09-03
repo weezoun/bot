@@ -130,7 +130,7 @@ class SymbolConfig:
         trend_sl_reversal_enabled=False,
         scalp_sl_profit_skip_reversal=False,
         scalp_sl_reversal_cooldown=False,
-        scalp_atr_check_enabled=True,
+        atr_check_enabled=True,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -357,16 +357,27 @@ class SymbolConfig:
         # every other symbol, unchanged. False (default) for every other
         # symbol — no effect on them.
         self.SCALP_SL_REVERSAL_COOLDOWN = scalp_sl_reversal_cooldown
-        # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — user's own words: "jaise
-        # hum ne with_trend mein ATR ka check nahi lagaya hoa usi tarah
-        # scalp ke andar se bhi ATR check remove karo" (WITH_TREND — Rule
-        # 2's own entry condition, and Rule 3/4's gates — has never checked
-        # ATR at all; scalp's own entry (Rule 5) and its TP re-arm gate
-        # (Rule 6) both do, via `snap.atr_strong`/`live_snap.atr_strong`).
-        # Applies to all 5 non-XAUUSD symbols per the standing default
-        # (XAUUSD frozen since 2026-08-29, not named here) — `False` set
-        # explicitly on USA500/USA100/USA30/GBPUSD/USDJPY below; XAUUSD
-        # keeps the default `True` (unaffected, unchanged).
+        # ATR_CHECK_ENABLED, 2026-09-03 — user's own words: "jaise hum ne
+        # with_trend mein ATR ka check nahi lagaya hoa usi tarah scalp ke
+        # andar se bhi ATR check remove karo" (Rule 2's own entry condition
+        # has never checked ATR at all; Rule 5's entry, Rule 6's TP re-arm
+        # gate, AND — found while implementing, flagged, then also asked
+        # to be included — Rule 3's own TP re-arm gate all do, via
+        # `snap.atr_strong`/`live_snap.atr_strong`). Originally
+        # named SCALP_ATR_CHECK_ENABLED, scoped to Rule 5/6 only and the 5
+        # non-XAUUSD symbols (XAUUSD frozen, not named yet) — SAME DAY,
+        # extended twice: (1) "rule 3 se bhi remove karo" — Rule 3's own
+        # gate (`_check_rule3_gate`) now reads this same flag too, since it
+        # was the one WITH_TREND-family check that DID have ATR, breaking
+        # the "with_trend has none" premise the original request was based
+        # on; (2) "xauusd per bhi apply karo" — XAUUSD explicitly named,
+        # exempting this specific change from the standing 2026-08-29
+        # freeze (which only skips changes the user does NOT name).
+        # Renamed accordingly (dropped "SCALP" — would be misleading now
+        # that a WITH_TREND rule reads it too). `False` set explicitly on
+        # ALL 6 symbols below (including XAUUSD now) — the constructor
+        # default stays `True` only as the fallback for any symbol that
+        # doesn't explicitly set it.
         #
         # HISTORY WORTH KNOWING (flagged here since it directly conflicts
         # with this request, though the user's instruction stands — this
@@ -378,16 +389,19 @@ class SymbolConfig:
         # after) — user's own diagnosis at the time: "chopy trades mein
         # enter ho raha hai yeh." Rule 6 mirrors Rule 5's own ATR
         # requirement for the same reason (a genuine continuation should
-        # pass the same noise filter a fresh entry would).
+        # pass the same noise filter a fresh entry would); Rule 3 has
+        # always independently checked ATR too (WITH_TREND's own TP
+        # re-arm, a separate historical decision from Rule 5/6's).
         #
-        # IMPACT: scalp entries (Rule 5) and scalp re-arms (Rule 6) on the
-        # 5 non-XAUUSD symbols no longer require `atr_strong` — removes
-        # one of the three noise filters added in the 2026-08-13 fix
-        # (ADX and RSI both stay, unchanged); may reintroduce some of the
-        # choppy/low-momentum entries that fix specifically targeted,
-        # trading off against catching genuine moves ATR was filtering out
-        # too. Worth watching closely against real data.
-        self.SCALP_ATR_CHECK_ENABLED = scalp_atr_check_enabled
+        # IMPACT: Rule 5 entries, Rule 6 scalp re-arms, AND Rule 3
+        # WITH_TREND re-arms no longer require `atr_strong`, on all 6
+        # symbols — removes one of the three noise filters added in the
+        # 2026-08-13 fix (ADX and RSI both stay, unchanged, everywhere);
+        # may reintroduce some of the choppy/low-momentum entries/re-arms
+        # that fix specifically targeted, trading off against catching
+        # genuine moves ATR was filtering out too. Worth watching closely
+        # against real data — including on XAUUSD now, despite its freeze.
+        self.ATR_CHECK_ENABLED = atr_check_enabled
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR
@@ -500,10 +514,9 @@ USA500 = SymbolConfig(
     # on this flag for the full REASON/IMPACT (real data: profit-triggered
     # immediate reversal net-negative, loss-triggered net-positive).
     scalp_sl_profit_skip_reversal=True,
-    # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT/history. Default (all 5 non-XAUUSD
-    # symbols, per the standing freeze).
-    scalp_atr_check_enabled=False,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. Removes ATR from Rule 3/5/6 alike.
+    atr_check_enabled=False,
 )
 
 # All other symbols below: same thresholds as USA500 (ADX/RSI bands are
@@ -589,6 +602,12 @@ XAUUSD = SymbolConfig(  # mean M15 ATR ~8.1 (near-identical to USA500 currently)
     # explicitly by the user, so this is exempt from the standing
     # 2026-08-29 freeze on unnamed changes.
     scalp_sl_reversal_cooldown=True,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. XAUUSD explicitly named by the user
+    # ("xauusd per bhi apply karo"), exempting this specific change from
+    # the standing 2026-08-29 freeze (which only skips unnamed changes) —
+    # removes ATR from Rule 3/5/6 alike, same as the other 5 symbols.
+    atr_check_enabled=False,
 )
 
 GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11)
@@ -704,11 +723,12 @@ GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11
     # same flat 0.00050 SL/TP, trails at the same corrected staircase as
     # every other position here.
     trend_sl_reversal_enabled=True,
-    # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT/history. No practical effect here (Rule
-    # 5/6 are already disabled on this symbol, scalping_enabled=False) —
-    # set for consistency with the other 4 non-XAUUSD symbols only.
-    scalp_atr_check_enabled=False,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. Rule 5/6 are moot here (already
+    # disabled, scalping_enabled=False) but Rule 3 (WITH_TREND TP re-arm)
+    # is NOT disabled on this symbol — this DOES have a real effect: Rule
+    # 3's gate no longer requires ATR strong here either.
+    atr_check_enabled=False,
 )
 
 USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scale)
@@ -792,11 +812,12 @@ USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scal
     # through to the generic branch (activate=25%/lock_back=25%/
     # min_lock=12.5% of TP, continuous).
     trend_sl_reversal_enabled=True,
-    # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT/history. No practical effect here (Rule
-    # 5/6 are already disabled on this symbol, scalping_enabled=False) —
-    # set for consistency with the other 4 non-XAUUSD symbols only.
-    scalp_atr_check_enabled=False,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. Rule 5/6 are moot here (already
+    # disabled, scalping_enabled=False) but Rule 3 (WITH_TREND TP re-arm)
+    # is NOT disabled on this symbol — this DOES have a real effect: Rule
+    # 3's gate no longer requires ATR strong here either.
+    atr_check_enabled=False,
 )
 
 USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default on
@@ -934,10 +955,9 @@ USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default 
     # on this flag for the full REASON/IMPACT (real data: profit-triggered
     # immediate reversal net-negative, loss-triggered net-positive).
     scalp_sl_profit_skip_reversal=True,
-    # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT/history. Default (all 5 non-XAUUSD
-    # symbols, per the standing freeze).
-    scalp_atr_check_enabled=False,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. Removes ATR from Rule 3/5/6 alike.
+    atr_check_enabled=False,
 )
 
 USA30 = SymbolConfig(  # mean M15 ATR ~53.7
@@ -1044,10 +1064,9 @@ USA30 = SymbolConfig(  # mean M15 ATR ~53.7
     # on this flag for the full REASON/IMPACT (real data: profit-triggered
     # immediate reversal net-negative, loss-triggered net-positive).
     scalp_sl_profit_skip_reversal=True,
-    # SCALP_ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT/history. Default (all 5 non-XAUUSD
-    # symbols, per the standing freeze).
-    scalp_atr_check_enabled=False,
+    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
+    # the full REASON/IMPACT/history. Removes ATR from Rule 3/5/6 alike.
+    atr_check_enabled=False,
 )
 
 # Six-symbol addition (Coffee/Copper/Cocoa/Cotton/Palladium/Platinum),

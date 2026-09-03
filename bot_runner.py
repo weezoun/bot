@@ -959,12 +959,13 @@ class SymbolBot:
         the scalp band, ATR strong, and the currently forming candle
         DEFINITELY the required color.
 
-        CHANGED 2026-09-03 (cfg.SCALP_ATR_CHECK_ENABLED, per-symbol, all 5
-        non-XAUUSD symbols) — requested directly, mirroring Rule 5's own
+        CHANGED 2026-09-03 (cfg.ATR_CHECK_ENABLED, per-symbol, all 6
+        symbols now — XAUUSD explicitly named same day, exempting it from
+        the standing freeze) — requested directly, mirroring Rule 5's own
         matching change (see strategy.evaluate_entry's own comment for the
-        full REASON/IMPACT/history): ATR is now only actually enforced
-        when this flag is True. XAUUSD keeps it (unaffected, frozen).
-        ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally."""
+        full REASON/IMPACT/history, including how this flag's scope grew
+        same day): ATR is now only actually enforced when this flag is
+        True. ADX/DI/rolling-DI/RSI/candle-color all stay, unconditionally."""
         gate = self.state.scalp_continuation_gate
         if not gate:
             return
@@ -975,7 +976,7 @@ class SymbolBot:
                 and live_snap.di_plus > live_snap.di_minus
                 and live_snap.di_plus > live_snap.prev_di_plus       # rolling DI
                 and live_snap.rsi > self.cfg.RSI_SCALP_BUY_MIN
-                and (live_snap.atr_strong or not self.cfg.SCALP_ATR_CHECK_ENABLED)
+                and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
                 and _bullish_candle(live_snap)                        # forming candle definitely green
             )
         else:
@@ -984,13 +985,13 @@ class SymbolBot:
                 and live_snap.di_minus > live_snap.di_plus
                 and live_snap.di_minus > live_snap.prev_di_minus     # rolling DI
                 and live_snap.rsi < self.cfg.RSI_SCALP_SELL_MAX
-                and (live_snap.atr_strong or not self.cfg.SCALP_ATR_CHECK_ENABLED)
+                and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
                 and _bearish_candle(live_snap)                        # forming candle definitely red
             )
         if cleared:
             self.state.scalp_continuation_gate = None
             self.state.scalp_armed = True
-            atr_part = "ATR" if self.cfg.SCALP_ATR_CHECK_ENABLED else "ATR-check-disabled"
+            atr_part = "ATR" if self.cfg.ATR_CHECK_ENABLED else "ATR-check-disabled"
             self.state.log(
                 f"Rule 6 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/candle all confirmed "
                 f"(same-candle re-arm now allowed once confirmed)"
@@ -1041,7 +1042,18 @@ class SymbolBot:
         candle), RSI inside the WITH_TREND band, ATR strong, and the
         CURRENTLY FORMING candle definitely the required color (an
         absolute requirement, not just "not opposite" — the previous
-        version's weaker check)."""
+        version's weaker check).
+
+        CHANGED 2026-09-03 (cfg.ATR_CHECK_ENABLED, all 6 symbols — XAUUSD
+        explicitly named same day, exempting it from the standing freeze)
+        — found while implementing a Rule 5/6 ATR-removal request (this
+        gate was the one WITH_TREND-family check that DID check ATR, even
+        though a fresh Rule 2 entry never has), flagged to the user, then
+        explicitly asked to be included too: "rule 3 se bhi remove karo."
+        ATR is now only actually enforced when this flag is True — same
+        flag Rule 5/6 read (see config.py's own comment for the full
+        history of how its scope grew same day). ADX/DI/rolling-DI/RSI/
+        candle-color all stay, unconditionally."""
         gate = self.state.rule3_gate
         if not gate:
             return
@@ -1053,7 +1065,7 @@ class SymbolBot:
                 and live_snap.di_plus > live_snap.prev_di_plus     # rolling DI
                 and live_snap.rsi <= _rsi_buy_ceiling(live_snap, self.cfg)
                 and live_snap.rsi >= 40
-                and live_snap.atr_strong
+                and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
                 and _bullish_candle(live_snap)                      # forming candle definitely green
             )
         else:
@@ -1063,13 +1075,14 @@ class SymbolBot:
                 and live_snap.di_minus > live_snap.prev_di_minus   # rolling DI
                 and live_snap.rsi >= _rsi_sell_floor(live_snap, self.cfg)
                 and live_snap.rsi <= 60
-                and live_snap.atr_strong
+                and (live_snap.atr_strong or not self.cfg.ATR_CHECK_ENABLED)
                 and _bearish_candle(live_snap)                      # forming candle definitely red
             )
         if cleared:
             self.state.rule3_gate = None
+            atr_part = "ATR" if self.cfg.ATR_CHECK_ENABLED else "ATR-check-disabled"
             self.state.log(
-                f"Rule 3 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/ATR/candle all confirmed "
+                f"Rule 3 gate cleared ({side}) — ADX/DI/rolling-DI/RSI/{atr_part}/candle all confirmed "
                 f"(same-candle re-entry now allowed once confirmed)"
             )
 

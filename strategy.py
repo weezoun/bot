@@ -385,7 +385,7 @@ def _skip_scalp_sell_reason(snap: Snapshot, cfg) -> str:
         parts.append(f"ADX({snap.adx:.1f}) < {cfg.ADX_MIN} (Rule 5)")
     if not (snap.rsi < cfg.RSI_SCALP_SELL_MAX):
         parts.append(f"RSI({snap.rsi:.1f}) not < {cfg.RSI_SCALP_SELL_MAX} (Rule 5)")
-    if cfg.SCALP_ATR_CHECK_ENABLED and not snap.atr_strong:
+    if cfg.ATR_CHECK_ENABLED and not snap.atr_strong:
         parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f}) (Rule 5)")
     if not (snap.di_minus > snap.prev_di_minus):
         parts.append(f"-DI({snap.di_minus:.1f}) not rising vs prior candle ({snap.prev_di_minus:.1f}) (Rule 5)")
@@ -402,7 +402,7 @@ def _skip_scalp_buy_reason(snap: Snapshot, cfg) -> str:
         parts.append(f"ADX({snap.adx:.1f}) < {cfg.ADX_MIN} (Rule 5)")
     if not (snap.rsi > cfg.RSI_SCALP_BUY_MIN):
         parts.append(f"RSI({snap.rsi:.1f}) not > {cfg.RSI_SCALP_BUY_MIN} (Rule 5)")
-    if cfg.SCALP_ATR_CHECK_ENABLED and not snap.atr_strong:
+    if cfg.ATR_CHECK_ENABLED and not snap.atr_strong:
         parts.append(f"ATR not strong ({snap.atr:.2f} < mean {snap.atr_mean:.2f}, and not expanding vs prior {snap.prev_atr:.2f}) (Rule 5)")
     if not (snap.di_plus > snap.prev_di_plus):
         parts.append(f"+DI({snap.di_plus:.1f}) not rising vs prior candle ({snap.prev_di_plus:.1f}) (Rule 5)")
@@ -561,15 +561,19 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
     # still the intended earlier-entry behavior; this is layering a noise
     # filter back on top of that, not reverting it.
     #
-    # CHANGED 2026-09-03, SCALP_ATR_CHECK_ENABLED (per-symbol, all 5 non-
-    # XAUUSD symbols) — requested directly, mirroring WITH_TREND's own
-    # entry condition (Rule 2, below) which has never checked ATR at all:
-    # "jaise hum ne with_trend mein ATR ka check nahi lagaya hoa usi tarah
-    # scalp ke andar se bhi ATR check remove karo." `atr_strong` is now
-    # only actually enforced when this flag is True — XAUUSD keeps it
-    # (unaffected, frozen). ADX and RSI both stay, unconditionally, on
-    # every symbol — only the ATR leg of the 2026-08-13 noise-filter
-    # fix (see above) is being made conditional here, not the whole thing.
+    # CHANGED 2026-09-03, cfg.ATR_CHECK_ENABLED (per-symbol, all 6 symbols
+    # now — XAUUSD explicitly named same day, exempting it from the
+    # standing freeze) — requested directly, mirroring Rule 2's own entry
+    # condition (below) which has never checked ATR at all: "jaise hum ne
+    # with_trend mein ATR ka check nahi lagaya hoa usi tarah scalp ke
+    # andar se bhi ATR check remove karo." `atr_strong` is now only
+    # actually enforced when this flag is True. Same flag also governs
+    # Rule 3's own gate (bot_runner._check_rule3_gate) and Rule 6's
+    # (_check_rule6_gate) — see config.py's own comment for the full
+    # history of how this flag's scope grew same day. ADX and RSI both
+    # stay, unconditionally, on every symbol — only the ATR leg of the
+    # 2026-08-13 noise-filter fix (see above) is being made conditional
+    # here, not the whole thing.
     if snap.trend == 'TRENDING_UP':
         # Rule 5: rolling DI (this side's DI above the immediately
         # preceding candle — accelerating right now) + forming candle
@@ -583,7 +587,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             cfg.SCALPING_ENABLED               # Rule 5: symbol-level kill switch — see config.py
             and snap.adx >= cfg.ADX_MIN
             and snap.rsi < cfg.RSI_SCALP_SELL_MAX
-            and (snap.atr_strong or not cfg.SCALP_ATR_CHECK_ENABLED)
+            and (snap.atr_strong or not cfg.ATR_CHECK_ENABLED)
             and snap.di_minus > snap.prev_di_minus   # Rule 5: rolling DI
             and _bearish_candle(snap)              # Rule 5: forming candle same direction (red)
             and scalp_allowed
@@ -654,7 +658,7 @@ def evaluate_entry(snap: Snapshot, closed_snap: Snapshot, cfg, scalp_allowed: bo
             cfg.SCALPING_ENABLED               # Rule 5: symbol-level kill switch — see config.py
             and snap.adx >= cfg.ADX_MIN
             and snap.rsi > cfg.RSI_SCALP_BUY_MIN
-            and (snap.atr_strong or not cfg.SCALP_ATR_CHECK_ENABLED)
+            and (snap.atr_strong or not cfg.ATR_CHECK_ENABLED)
             and snap.di_plus > snap.prev_di_plus     # Rule 5: rolling DI
             and _bullish_candle(snap)              # Rule 5: forming candle same direction (green)
             and scalp_allowed

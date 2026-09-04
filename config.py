@@ -132,6 +132,7 @@ class SymbolConfig:
         scalp_sl_reversal_cooldown=False,
         atr_check_enabled=True,
         condition_check_enabled=True,
+        regime_flip_force_rearm=True,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -437,6 +438,43 @@ class SymbolConfig:
         # shared state between them, same isolation boundary as every
         # other gate in this project.
         self.CONDITION_CHECK_ENABLED = condition_check_enabled
+        # REGIME_FLIP_FORCE_REARM, 2026-09-04 — user found (and asked to
+        # check across every rule) that a DI-regime flip was ALSO forcing
+        # three things immediately, bypassing every confirmation check
+        # just added above: `scalp_armed = True` (Rule 5/6's own re-arm),
+        # `scalp_continuation_gate = None` (wipes Rule 6's gate before it
+        # ever gets to confirm), and `rule7_reversal_gate = None` (wipes
+        # Rule 7's reversal-side gate before ITS cooldown+DI/candle
+        # confirmation ever completes). This was the ORIGINAL, pre-
+        # existing design (a regime flip alone was always treated as
+        # sufficient proof, older than any of today's ATR/condition work)
+        # — user's own words once this was traced end-to-end: "jab humne
+        # rules change kar diye hain ke woh market conditions, ADX, RSI,
+        # rolling DI ko check karo, to ab yeh 'already entered in DI
+        # regime' wala useless hai, yeh nahi chahiye, na with_trend mein
+        # na hi scalp mein." Scoped explicitly: "indices ko chhor do, gold
+        # aur currency per apply karo" — indices explicitly EXCLUDED,
+        # keep their existing regime-flip shortcut exactly as it is.
+        #
+        # Default `True` preserves the original behavior (indices, and
+        # the fallback for any symbol not explicitly touched); `False` on
+        # XAUUSD/GBPUSD/USDJPY only. When `False`: a DI-regime flip no
+        # longer forces `scalp_armed` or wipes `scalp_continuation_gate`/
+        # `rule7_reversal_gate` — those three now clear ONLY via their own
+        # real confirmation (ADX/rolling-DI/RSI/candle/condition for Rule
+        # 6's gate; cooldown+DI-benchmark-cross/rolling-DI+candle/
+        # condition for Rule 7's gate), regardless of DI regime.
+        #
+        # NOT touched by this flag (deliberately left exactly as they
+        # are, on every symbol, including XAUUSD/GBPUSD/USDJPY):
+        # `scalp_reversal_used`/`scalp_rearm_gate`/`scalp_reversal_di`/
+        # `scalp_no_reversal_gate` resets — all tied to indices' own
+        # classic `_reverse_scalp()` mechanism, which the user explicitly
+        # asked to leave alone in the earlier cap-analysis discussion;
+        # `trend_reversal_used` reset — moot regardless, since
+        # TREND_SL_REVERSAL_ENABLED is already False on both currency
+        # pairs now (see that flag's own comment).
+        self.REGIME_FLIP_FORCE_REARM = regime_flip_force_rearm
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR
@@ -643,6 +681,11 @@ XAUUSD = SymbolConfig(  # mean M15 ATR ~8.1 (near-identical to USA500 currently)
     # the standing 2026-08-29 freeze (which only skips unnamed changes) —
     # removes ATR from Rule 3/5/6 alike, same as the other 5 symbols.
     atr_check_enabled=False,
+    # REGIME_FLIP_FORCE_REARM, 2026-09-04 — see SymbolConfig's own comment
+    # for the full REASON/IMPACT. Indices explicitly excluded (kept as-is,
+    # "indices ko chhor do") — Gold and currency pairs get the new,
+    # confirmation-only behavior.
+    regime_flip_force_rearm=False,
 )
 
 GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11)
@@ -795,6 +838,10 @@ GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11
     # from indices-specific trade data showing loss-triggered reversal is
     # net-positive there — a claim with no data of its own for GBPUSD).
     scalp_sl_reversal_cooldown=True,
+    # REGIME_FLIP_FORCE_REARM, 2026-09-04 — see SymbolConfig's own comment
+    # for the full REASON/IMPACT. Indices explicitly excluded (kept as-is)
+    # — Gold and currency pairs get the new, confirmation-only behavior.
+    regime_flip_force_rearm=False,
 )
 
 USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scale)
@@ -895,6 +942,10 @@ USDJPY = SymbolConfig(  # mean M15 ATR ~0.124 (~12.4 pips at JPY's 0.01-pip scal
     # own comment (see that symbol): currency pairs follow GOLD's Rule 7
     # mechanism, not indices'.
     scalp_sl_reversal_cooldown=True,
+    # REGIME_FLIP_FORCE_REARM, 2026-09-04 — see SymbolConfig's own comment
+    # for the full REASON/IMPACT. Indices explicitly excluded (kept as-is)
+    # — Gold and currency pairs get the new, confirmation-only behavior.
+    regime_flip_force_rearm=False,
 )
 
 USA100 = SymbolConfig(  # mean M15 ATR ~60.7 — NOT in Market Watch by default on

@@ -716,6 +716,36 @@ unconfirmed setup correctly leaves scalp disarmed (real confirmation
 still required, not a rubber stamp), a strong/confirmed setup clears the
 gate and re-arms `scalp_armed`, exactly like Rule 6's own TP outcome.
 
+**Regime-flip shortcut removed, 2026-09-04 — XAUUSD/GBPUSD/USDJPY only
+(`cfg.REGIME_FLIP_FORCE_REARM`).** Investigating a live "already scalped
+this DI regime" case that persisted on Gold even after `condition` had
+moved from RANGING to NORMAL surfaced a separate, older mechanism: a
+DI-regime flip (`bot_tick`'s own regime tracking) was ALSO forcing
+`scalp_armed = True` and wiping BOTH `scalp_continuation_gate` (Rule 6's
+gate) and `rule7_reversal_gate` (Rule 7's reversal gate) immediately —
+bypassing every confirmation check either gate exists to enforce
+(ADX/rolling-DI/RSI/candle/condition), treating a regime change alone as
+sufficient proof. This predates all of today's ATR/condition work — it
+was the ORIGINAL design.
+
+User traced this end-to-end and asked for it removed specifically on
+Gold and currency pairs, indices explicitly excluded: *"indices ko
+chhor do, gold aur currency per apply karo"* — since *"jab humne rules
+change kar diye hain ke woh market conditions, ADX, RSI, rolling DI ko
+check karo, to ab yeh 'already entered in DI regime' wala useless hai,
+yeh nahi chahiye, na with_trend mein na hi scalp mein."*
+
+New `cfg.REGIME_FLIP_FORCE_REARM` flag, default `True` (preserves the
+original behavior — indices, and the fallback for any untouched symbol),
+`False` on XAUUSD/GBPUSD/USDJPY. When `False`, a DI-regime flip no
+longer touches `scalp_armed`/`scalp_continuation_gate`/
+`rule7_reversal_gate` at all — those three now clear ONLY via their own
+real, dedicated clearing functions, regardless of DI regime. Deliberately
+NOT touched (unconditional on every symbol): `scalp_reversal_used`/
+`scalp_rearm_gate`/`scalp_reversal_di`/`scalp_no_reversal_gate` resets —
+all tied to indices' own classic `_reverse_scalp()` mechanism, left
+exactly as the user asked in the earlier cap-analysis discussion.
+
 ---
 
 Two systems per symbol — WITH_TREND and COUNTER_SCALP (scalp) — both driven

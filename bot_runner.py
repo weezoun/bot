@@ -1972,14 +1972,35 @@ class SymbolBot:
             regime = self.state.di_regime
         if regime != self.state.di_regime:
             self.state.di_regime = regime
-            self.state.scalp_armed = True
+            # REGIME_FLIP_FORCE_REARM, 2026-09-04 — user traced this
+            # end-to-end and asked for it to be removed on Gold/currency
+            # pairs, indices explicitly excluded ("indices ko chhor do,
+            # gold aur currency per apply karo"): a regime flip alone used
+            # to force scalp_armed True and wipe scalp_continuation_gate/
+            # rule7_reversal_gate immediately, bypassing every real
+            # confirmation check (ADX/rolling-DI/RSI/candle/condition)
+            # those two gates exist to enforce. See config.py's own
+            # comment on this flag for the full REASON/IMPACT. When
+            # False, these three lines are skipped entirely — Rule 6's
+            # gate and Rule 7's reversal gate then clear ONLY via their
+            # own dedicated clearing functions (_check_rule6_gate /
+            # _check_rule7_reversal_gate), regardless of DI regime.
+            if self.cfg.REGIME_FLIP_FORCE_REARM:
+                self.state.scalp_armed = True
+                self.state.scalp_continuation_gate = None  # regime flip already re-armed it too
+                self.state.rule7_reversal_gate = None  # stale benchmark, regime moved on
+            # NOT touched by the flag above — deliberately unconditional,
+            # every symbol: tied to indices' own classic _reverse_scalp()
+            # mechanism (scalp_reversal_used/scalp_rearm_gate/
+            # scalp_reversal_di/scalp_no_reversal_gate), left exactly as
+            # the user asked in the earlier cap-analysis discussion, and
+            # trend_reversal_used (moot regardless, TREND_SL_REVERSAL_
+            # ENABLED is already False on both currency pairs now).
             self.state.scalp_reversal_used = False
             self.state.scalp_rearm_gate = None  # regime flip already re-armed it — this gate is moot
             self.state.scalp_reversal_di = None
-            self.state.scalp_continuation_gate = None  # regime flip already re-armed it too
             self.state.scalp_no_reversal_gate = None  # ditto
             self.state.trend_reversal_used = False  # new mechanism's own cap, same regime-flip reset
-            self.state.rule7_reversal_gate = None  # stale benchmark, regime moved on — XAUUSD only
 
         self._check_scalp_rearm(live_snap)
         self._check_rule6_gate(live_snap)

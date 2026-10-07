@@ -380,7 +380,23 @@
     .ohlc .k { color: var(--muted); margin-right: 0.2rem; }
     .chart-legend { font-family: "JetBrains Mono", monospace; font-size: 0.72rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-bottom: 0.4rem; }
     .chart-legend .sw { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 0.3rem; }
-    #liveChart { height: 560px; width: 100%; }
+    #liveChart { height: 600px; width: 100%; }
+    .chart-wrap { position: relative; }
+    /* Pane name + threshold labels sit INSIDE each pane's top-left corner,
+       as HTML over the chart, so they never collide with the price-axis
+       labels on the right or with each other. */
+    .pane-label {
+      position: absolute; left: 8px; z-index: 3; pointer-events: none;
+      font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em;
+      color: var(--muted); background: var(--header-bg); border-radius: 5px; padding: 0.1rem 0.4rem;
+      white-space: nowrap;
+    }
+    .pane-label .lv { font-family: "JetBrains Mono", monospace; text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 0.5rem; }
+    .pane-label .ln { display: inline-block; width: 12px; vertical-align: middle; margin: 0 0.25rem 0 0.15rem; border-top: 2px dashed var(--muted); }
+    .pane-label .ln.dot { border-top-style: dotted; }
+    .pos-info { font-family: "JetBrains Mono", monospace; font-size: 0.76rem; display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin-bottom: 0.4rem; }
+    .pos-info:empty { display: none; }
+    .pos-info .tag { font-weight: 700; }
     .chart-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
     @media (max-width: 900px) { #liveChart { height: 460px; } }
     @media (max-width: 900px) {
@@ -527,8 +543,14 @@
         <span><span class="sw" style="background:var(--chart-up)"></span>+DI <b id="lgDip">—</b></span>
         <span><span class="sw" style="background:var(--chart-down)"></span>-DI <b id="lgDim">—</b></span>
       </div>
-      <div id="liveChart"></div>
-      <div class="chart-note" id="chartNote">Panes: price + EMA 50/200 (open positions show entry/SL/TP lines) · RSI · ADX/+DI/-DI. Times are broker server time, same as MT5.</div>
+      <div class="pos-info" id="chartPos"></div>
+      <div class="chart-wrap">
+        <div id="liveChart"></div>
+        <div class="pane-label" id="paneLbl0"></div>
+        <div class="pane-label" id="paneLbl1"></div>
+        <div class="pane-label" id="paneLbl2"></div>
+      </div>
+      <div class="chart-note" id="chartNote">Threshold lines are this symbol's own live config values (the same numbers the rules check). Times are broker server time, same as MT5.</div>
     </section>
 
     <section class="panel span-12">
@@ -976,7 +998,7 @@
     // for its last decision on that symbol, so the chart can never disagree
     // with the Live indicators panel. Follows the Live indicators tab.
     let chart = null, sCandle, sEma50, sEma200, sRsi, sAdx, sDip, sDim;
-    let rsiLines = [], posLines = [], posSig = "";
+    let levelLines = [], posLines = [], posSig = "", chartLevels = null;
     let chartSym = SYMBOLS[0], chartLoadedSym = null, chartDigits = null;
     let chartBars = [], barByTime = new Map();
 
@@ -998,7 +1020,7 @@
       chart = L.createChart(el, {
         autoSize: true,
         crosshair: { mode: L.CrosshairMode.Normal },
-        timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 4 },
+        timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 10 },
       });
       const noMarks = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
       sCandle = chart.addSeries(L.CandlestickSeries, { borderVisible: false }, 0);
@@ -1008,15 +1030,13 @@
       sAdx = chart.addSeries(L.LineSeries, { lineWidth: 2, priceLineVisible: false }, 2);
       sDip = chart.addSeries(L.LineSeries, { lineWidth: 1, priceLineVisible: false }, 2);
       sDim = chart.addSeries(L.LineSeries, { lineWidth: 1, priceLineVisible: false }, 2);
-      rsiLines = [70, 30].map(v => sRsi.createPriceLine({
-        price: v, lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "",
-      }));
       const panes = chart.panes();
       if (panes.length === 3) {
         panes[0].setStretchFactor(3.2);
         panes[1].setStretchFactor(1);
         panes[2].setStretchFactor(1.2);
       }
+      if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(positionPaneLabels)).observe(el);
       chart.subscribeCrosshairMove(p => {
         const b = p && p.time !== undefined ? barByTime.get(p.time) : null;
         showOhlc(b || chartBars[chartBars.length - 1]);
@@ -1045,7 +1065,7 @@
       sAdx.applyOptions({ color: cssVar("--adx") });
       sDip.applyOptions({ color: up });
       sDim.applyOptions({ color: down });
-      rsiLines.forEach(l => l.applyOptions({ color: cssVar("--muted") }));
+      if (chartLevels) setLevels(chartLevels);  // redraw threshold lines in the new colours
       posSig = "";  // redraw position lines in the new colours on the next poll
     }
     function setChartSymbol(sym) {
@@ -1098,8 +1118,52 @@
           barByTime.set(b.time, b);
         }
       }
+      if (d.levels && JSON.stringify(d.levels) !== JSON.stringify(chartLevels)) setLevels(d.levels);
       drawPositions(d.positions || []);
       showOhlc(chartBars[chartBars.length - 1]);
+      positionPaneLabels();
+    }
+    // Threshold lines: no axis label and no title (those were overlapping
+    // the live values on the price axis); each pane's HTML label names
+    // the lines and their values instead.
+    function setLevels(lv) {
+      chartLevels = lv;
+      levelLines.forEach(([s, l]) => s.removePriceLine(l));
+      levelLines = [];
+      const L = LightweightCharts, col = cssVar("--muted");
+      const add = (s, price, style) => levelLines.push([s, s.createPriceLine({
+        price, color: col, lineWidth: 1, lineStyle: style, axisLabelVisible: false, title: "",
+      })]);
+      add(sRsi, lv.rsi_trend_buy_max, L.LineStyle.Dashed);
+      add(sRsi, lv.rsi_trend_sell_min, L.LineStyle.Dashed);
+      add(sRsi, lv.rsi_scalp_sell_max, L.LineStyle.Dotted);
+      add(sRsi, lv.rsi_scalp_buy_min, L.LineStyle.Dotted);
+      add(sAdx, lv.adx_strong, L.LineStyle.Dashed);
+      add(sAdx, lv.adx_min, L.LineStyle.Dotted);
+      renderPaneLabels();
+    }
+    // Each pane gets a compact header (requested: "pane ka name us k header
+    // ki terha hona chahiye ziada space nahi le"), plus its threshold values
+    // in short form: dashed line first, dotted line second.
+    function renderPaneLabels() {
+      const lv = chartLevels || {};
+      const set = (i, html) => { const el = document.getElementById("paneLbl" + i); if (el) el.innerHTML = html; };
+      set(0, "Price · EMA 50 / 200");
+      set(1, `RSI 14<span class="lv"><span class="ln"></span>${lv.rsi_trend_buy_max}/${lv.rsi_trend_sell_min} trend · <span class="ln dot"></span>${lv.rsi_scalp_sell_max}/${lv.rsi_scalp_buy_min} scalp</span>`);
+      set(2, `ADX · +DI · −DI 14<span class="lv"><span class="ln"></span>${lv.adx_strong} strong · <span class="ln dot"></span>${lv.adx_min} min</span>`);
+    }
+    function positionPaneLabels() {
+      if (!chart) return;
+      const panes = chart.panes();
+      let top = 0;
+      for (let i = 0; i < 3; i++) {
+        const el = document.getElementById("paneLbl" + i);
+        if (!el) continue;
+        if (!panes[i]) { el.style.display = "none"; continue; }
+        el.style.display = "";
+        el.style.top = (top + 6) + "px";
+        top += panes[i].getHeight() + 1;  // +1 = pane separator
+      }
     }
     function drawPositions(positions) {
       const sig = JSON.stringify(positions);
@@ -1108,12 +1172,20 @@
       posLines.forEach(l => sCandle.removePriceLine(l));
       posLines = [];
       const L = LightweightCharts;
+      // No line titles: they were drawn over the newest candles. The price
+      // axis keeps each line's value; the row above the chart names them.
+      const dg = chartDigits || 2;
+      const info = [];
       for (const p of positions) {
-        const tag = (p.type || "") + (p.mode ? " " + p.mode : "");
-        if (p.price_open) posLines.push(sCandle.createPriceLine({ price: p.price_open, color: cssVar("--teal-dim"), lineWidth: 2, lineStyle: L.LineStyle.Solid, axisLabelVisible: true, title: tag }));
-        if (p.sl) posLines.push(sCandle.createPriceLine({ price: p.sl, color: cssVar("--chart-down"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "SL" }));
-        if (p.tp) posLines.push(sCandle.createPriceLine({ price: p.tp, color: cssVar("--chart-up"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "TP" }));
+        if (p.price_open) posLines.push(sCandle.createPriceLine({ price: p.price_open, color: cssVar("--teal-dim"), lineWidth: 2, lineStyle: L.LineStyle.Solid, axisLabelVisible: true, title: "" }));
+        if (p.sl) posLines.push(sCandle.createPriceLine({ price: p.sl, color: cssVar("--chart-down"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "" }));
+        if (p.tp) posLines.push(sCandle.createPriceLine({ price: p.tp, color: cssVar("--chart-up"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "" }));
+        info.push(`<span><span class="tag ${p.type === "BUY" ? "up" : "down"}">${esc(p.type)}</span> ${esc(p.mode || "")} · ` +
+                  `<span style="color:var(--teal-dim)">entry ${n(p.price_open, dg)}</span> · ` +
+                  `<span class="down">SL ${p.sl ? n(p.sl, dg) : "—"}</span> · <span class="up">TP ${p.tp ? n(p.tp, dg) : "—"}</span></span>`);
       }
+      const el = document.getElementById("chartPos");
+      if (el) el.innerHTML = info.length ? `<span class="k" style="color:var(--muted)">Open position:</span>` + info.join("") : "";
     }
     function showOhlc(b) {
       if (!b) return;

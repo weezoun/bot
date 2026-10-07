@@ -548,7 +548,18 @@ def api_chart():
         out.append(rec)
     pos = [{"type": p.get("type"), "price_open": f(p.get("price_open")), "sl": f(p.get("sl")),
             "tp": f(p.get("tp")), "mode": p.get("mode")} for p in positions]
-    return _no_cache(jsonify({"digits": digits, "bars": out, "positions": pos}))
+    # The bot's own ADX/RSI thresholds for this symbol, read live from
+    # config so the chart's threshold lines always match what the rules
+    # check (asked for: "un k threshold k levels bhi mention karo").
+    c = bot.cfg
+    levels = {
+        "adx_min": c.ADX_MIN, "adx_strong": c.ADX_STRONG_TREND,
+        "rsi_trend_buy_max": c.RSI_WITH_TREND_BUY_MAX, "rsi_trend_sell_min": c.RSI_WITH_TREND_SELL_MIN,
+        "rsi_trend_buy_max_strong": c.RSI_WITH_TREND_BUY_MAX_STRONG,
+        "rsi_trend_sell_min_strong": c.RSI_WITH_TREND_SELL_MIN_STRONG,
+        "rsi_scalp_sell_max": c.RSI_SCALP_SELL_MAX, "rsi_scalp_buy_min": c.RSI_SCALP_BUY_MIN,
+    }
+    return _no_cache(jsonify({"digits": digits, "bars": out, "positions": pos, "levels": levels}))
 
 
 @app.route("/api/trades")

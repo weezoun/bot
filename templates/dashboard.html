@@ -7,8 +7,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    // Apply the saved/system theme before first paint (no light flash).
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("dash-theme"); } catch (e) {}
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
   <style>
+    /* Light/dark theme, 2026-10-07 (requested: "dark mode aur light mode add
+       ker do"). Every colour is a token here; the header toggle sets
+       <html data-theme>, remembered per browser in localStorage. */
     :root {
+      color-scheme: light;
       --bg: #f3efe6;
       --ink: #1a2332;
       --muted: #5c6b7a;
@@ -16,10 +31,66 @@
       --line: #d9d0c0;
       --teal: #0d6e6e;
       --teal-dim: #0a5555;
+      --teal-hover: #0a5555;
       --amber: #b45309;
       --red: #b91c1c;
       --green: #15803d;
       --shadow: 0 10px 30px rgba(26, 35, 50, 0.06);
+      --soft: #f7f3ea;
+      --teal-soft: #ecf6f5;
+      --line-soft: #e5ddd0;
+      --log-ink: #334155;
+      --green-soft: #f0fdf4;
+      --red-soft: #fef2f2;
+      --amber-soft: #fffbeb;
+      --green-line: #86efac;
+      --red-line: #fecaca;
+      --red-btn: #fee2e2;
+      --header-bg: rgba(255,253,248,0.85);
+      --glow-1: #e7f2f0;
+      --glow-2: #f7e9d8;
+      --chart-up: #15803d;
+      --chart-down: #b91c1c;
+      --chart-grid: #ebe4d6;
+      --ema50: #2563eb;
+      --ema200: #b45309;
+      --rsi: #7c3aed;
+      --adx: #1a2332;
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0e1318;
+      --ink: #e4e0d8;
+      --muted: #94a3b2;
+      --panel: #161c23;
+      --line: #2a333d;
+      --teal: #0f8a86;
+      --teal-dim: #5fd0c8;
+      --teal-hover: #0c706d;
+      --amber: #f0a43a;
+      --red: #f47c7c;
+      --green: #4cc97a;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --soft: #1d242c;
+      --teal-soft: #12302f;
+      --line-soft: #2a333d;
+      --log-ink: #c9d2dc;
+      --green-soft: #11301e;
+      --red-soft: #381818;
+      --amber-soft: #382a10;
+      --green-line: #1f6b3a;
+      --red-line: #7a2c2c;
+      --red-btn: #3a1919;
+      --header-bg: rgba(22,28,35,0.88);
+      --glow-1: #0f2727;
+      --glow-2: #261d12;
+      --chart-up: #26a69a;
+      --chart-down: #ef5350;
+      --chart-grid: #222a33;
+      --ema50: #60a5fa;
+      --ema200: #f0a43a;
+      --rsi: #b794f6;
+      --adx: #e4e0d8;
     }
     * { box-sizing: border-box; }
     body {
@@ -27,8 +98,8 @@
       font-family: "DM Sans", system-ui, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(1200px 500px at 10% -10%, #e7f2f0 0%, transparent 55%),
-        radial-gradient(900px 400px at 100% 0%, #f7e9d8 0%, transparent 50%),
+        radial-gradient(1200px 500px at 10% -10%, var(--glow-1) 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, var(--glow-2) 0%, transparent 50%),
         var(--bg);
       min-height: 100vh;
     }
@@ -40,7 +111,7 @@
       justify-content: space-between;
       padding: 1.25rem 1.75rem;
       border-bottom: 1px solid var(--line);
-      background: rgba(255,253,248,0.85);
+      background: var(--header-bg);
       backdrop-filter: blur(8px);
       position: sticky;
       top: 0;
@@ -65,8 +136,8 @@
       border: 1px solid var(--line);
       background: var(--panel);
     }
-    .badge.on { color: var(--green); border-color: #86efac; background: #f0fdf4; }
-    .badge.off { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+    .badge.on { color: var(--green); border-color: var(--green-line); background: var(--green-soft); }
+    .badge.off { color: var(--red); border-color: var(--red-line); background: var(--red-soft); }
     button {
       font-family: inherit;
       font-weight: 600;
@@ -78,8 +149,8 @@
     }
     button:active { transform: scale(0.98); }
     .btn-start { background: var(--teal); color: #fff; }
-    .btn-start:hover { background: var(--teal-dim); }
-    .btn-stop { background: #fee2e2; color: var(--red); }
+    .btn-start:hover { background: var(--teal-hover); }
+    .btn-stop { background: var(--red-btn); color: var(--red); }
     main {
       padding: 1.25rem 1.75rem 2.5rem;
       display: grid;
@@ -118,7 +189,7 @@
     .metric {
       padding: 0.6rem 0.65rem;
       border-radius: 12px;
-      background: #f7f3ea;
+      background: var(--soft);
       border: 1px solid transparent;
     }
     .metric .lbl {
@@ -155,14 +226,14 @@
       color: var(--muted);
       cursor: pointer;
     }
-    .tab-btn:hover { background: #f7f3ea; }
+    .tab-btn:hover { background: var(--soft); }
     .tab-btn.active { background: var(--teal); border-color: var(--teal); color: #fff; }
     .reason {
       font-size: 0.9rem;
       line-height: 1.4;
       padding: 0.7rem 0.85rem;
       border-radius: 12px;
-      background: #ecf6f5;
+      background: var(--teal-soft);
       border-left: 4px solid var(--teal);
     }
     .reason-row + .reason-row { margin-top: 0.6rem; }
@@ -192,7 +263,7 @@
       font-weight: 700;
       padding: 0.1rem 0.45rem;
       border-radius: 6px;
-      background: #ecf6f5;
+      background: var(--teal-soft);
       color: var(--teal-dim);
       white-space: nowrap;
     }
@@ -202,12 +273,12 @@
       font-family: "JetBrains Mono", monospace;
       font-size: 0.76rem;
       line-height: 1.55;
-      color: #334155;
-      background: #f7f3ea;
+      color: var(--log-ink);
+      background: var(--soft);
       border-radius: 12px;
       padding: 0.75rem 0.9rem;
     }
-    .log-box div { border-bottom: 1px dashed #e5ddd0; padding: 0.2rem 0; }
+    .log-box div { border-bottom: 1px dashed var(--line-soft); padding: 0.2rem 0; }
     .log-box .sym-tag { color: var(--teal-dim); font-weight: 700; }
     .up { color: var(--green); }
     .down { color: var(--red); }
@@ -220,9 +291,9 @@
       border-radius: 999px;
       white-space: nowrap;
     }
-    .result-tp { color: var(--green); background: #f0fdf4; }
-    .result-sl { color: var(--red); background: #fef2f2; }
-    .result-flip { color: var(--amber); background: #fffbeb; }
+    .result-tp { color: var(--green); background: var(--green-soft); }
+    .result-sl { color: var(--red); background: var(--red-soft); }
+    .result-flip { color: var(--amber); background: var(--amber-soft); }
     .reason-cell {
       max-width: 260px;
       overflow: hidden;
@@ -245,7 +316,7 @@
       font-weight: 600;
       padding: 0.4rem 0.85rem;
     }
-    .pager button:hover:not(:disabled) { background: #f7f3ea; }
+    .pager button:hover:not(:disabled) { background: var(--soft); }
     .pager button:disabled { opacity: 0.4; cursor: not-allowed; }
     .pager .pageInfo {
       font-family: "JetBrains Mono", monospace;
@@ -267,7 +338,7 @@
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 0.9rem 1rem;
-      background: #f7f3ea;
+      background: var(--soft);
     }
     .rule-card + .rule-card { margin-top: 0.75rem; }
     .rule-card h3 {
@@ -280,7 +351,7 @@
     .rule-card .applies {
       margin-top: 0.65rem;
       padding-top: 0.55rem;
-      border-top: 1px dashed #e5ddd0;
+      border-top: 1px dashed var(--line-soft);
       display: flex;
       flex-wrap: wrap;
       gap: 0.35rem;
@@ -293,6 +364,25 @@
       color: var(--muted);
       margin-right: 0.2rem;
     }
+    .theme-btn {
+      background: var(--soft);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .theme-btn:hover { background: var(--teal-soft); }
+    /* Live chart, 2026-10-07 */
+    .chart-head {
+      display: flex; flex-wrap: wrap; align-items: baseline;
+      justify-content: space-between; gap: 0.5rem; margin-bottom: 0.6rem;
+    }
+    .chart-sym { font-family: "JetBrains Mono", monospace; font-weight: 700; color: var(--teal-dim); }
+    .ohlc { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; }
+    .ohlc .k { color: var(--muted); margin-right: 0.2rem; }
+    .chart-legend { font-family: "JetBrains Mono", monospace; font-size: 0.72rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; margin-bottom: 0.4rem; }
+    .chart-legend .sw { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 0.3rem; }
+    #liveChart { height: 560px; width: 100%; }
+    .chart-note { font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem; }
+    @media (max-width: 900px) { #liveChart { height: 460px; } }
     @media (max-width: 900px) {
       .span-4, .span-6, .span-8, .span-12 { grid-column: span 12; }
       .metrics, .metrics.cols-6 { grid-template-columns: repeat(2, 1fr); }
@@ -312,6 +402,7 @@
       <button class="btn-start" onclick="startBot()">Start</button>
       <button class="btn-stop" onclick="stopBot()">Stop</button>
       {% endif %}
+      <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Light / dark mode">🌙 Dark</button>
       {% if current_user %}<span class="badge">{{ current_user }}</span>{% endif %}
       <button class="btn-stop" onclick="logout()">Logout</button>
     </div>
@@ -416,6 +507,31 @@
     </section>
 
     <section class="panel span-12">
+      <h2>Live chart <span class="sub">(M15 · same data and indicators the bot decides on · follows the symbol selected in Live indicators)</span></h2>
+      <div class="chart-head">
+        <span class="chart-sym" id="chartSym">—</span>
+        <div class="ohlc" id="chartOhlc">
+          <span><span class="k">O</span><span id="oO">—</span></span>
+          <span><span class="k">H</span><span id="oH">—</span></span>
+          <span><span class="k">L</span><span id="oL">—</span></span>
+          <span><span class="k">C</span><span id="oC">—</span></span>
+          <span id="oChg">—</span>
+          <span class="k" id="oTime"></span>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <span><span class="sw" style="background:var(--ema50)"></span>EMA 50 <b id="lgEma50">—</b></span>
+        <span><span class="sw" style="background:var(--ema200)"></span>EMA 200 <b id="lgEma200">—</b></span>
+        <span><span class="sw" style="background:var(--rsi)"></span>RSI <b id="lgRsi">—</b></span>
+        <span><span class="sw" style="background:var(--adx)"></span>ADX <b id="lgAdx">—</b></span>
+        <span><span class="sw" style="background:var(--chart-up)"></span>+DI <b id="lgDip">—</b></span>
+        <span><span class="sw" style="background:var(--chart-down)"></span>-DI <b id="lgDim">—</b></span>
+      </div>
+      <div id="liveChart"></div>
+      <div class="chart-note" id="chartNote">Panes: price + EMA 50/200 (open positions show entry/SL/TP lines) · RSI · ADX/+DI/-DI. Times are broker server time, same as MT5.</div>
+    </section>
+
+    <section class="panel span-12">
       <h2>Decision log <span class="sub">(all symbols, merged)</span></h2>
       <div class="log-box" id="logs"></div>
     </section>
@@ -511,6 +627,7 @@
     {% endif %}
   </main>
 
+  <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <script>
     const SYMBOLS = {{ symbols|tojson }};
     let symbolDigits = {};  // sym -> real price precision (2 for indices/gold, 5 GBPUSD, 3 USDJPY, ...)
@@ -622,6 +739,7 @@
     }
 
     function showIndicatorTab(sym) {
+      setChartSymbol(sym);  // live chart follows the selected symbol
       document.querySelectorAll('#indicatorTabs .tab-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.sym === sym);
       });
@@ -836,6 +954,184 @@
     }
     refresh();
     loadTradeHistory();
+    // ---- Light / dark theme (2026-10-07) ----
+    function currentTheme() {
+      return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    }
+    function paintThemeBtn() {
+      const b = document.getElementById("themeBtn");
+      if (b) b.textContent = currentTheme() === "dark" ? "☀️ Light" : "🌙 Dark";
+    }
+    function toggleTheme() {
+      const t = currentTheme() === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", t);
+      try { localStorage.setItem("dash-theme", t); } catch (e) {}
+      paintThemeBtn();
+      applyChartTheme();
+    }
+    paintThemeBtn();
+
+    // ---- Live chart (2026-10-07) ----
+    // Data comes from /api/chart: the SAME indicator DataFrame the bot used
+    // for its last decision on that symbol, so the chart can never disagree
+    // with the Live indicators panel. Follows the Live indicators tab.
+    let chart = null, sCandle, sEma50, sEma200, sRsi, sAdx, sDip, sDim;
+    let rsiLines = [], posLines = [], posSig = "";
+    let chartSym = SYMBOLS[0], chartLoadedSym = null, chartDigits = null;
+    let chartBars = [], barByTime = new Map();
+
+    function cssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    function chartNote(msg) {
+      const el = document.getElementById("chartNote");
+      if (el) el.textContent = msg;
+    }
+    function initChart() {
+      const el = document.getElementById("liveChart");
+      if (!el) return;
+      if (!window.LightweightCharts) {
+        chartNote("Chart library could not be loaded (check the internet connection), the rest of the dashboard works normally.");
+        return;
+      }
+      const L = LightweightCharts;
+      chart = L.createChart(el, {
+        autoSize: true,
+        crosshair: { mode: L.CrosshairMode.Normal },
+        timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 4 },
+      });
+      const noMarks = { priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
+      sCandle = chart.addSeries(L.CandlestickSeries, { borderVisible: false }, 0);
+      sEma50 = chart.addSeries(L.LineSeries, { lineWidth: 2, ...noMarks }, 0);
+      sEma200 = chart.addSeries(L.LineSeries, { lineWidth: 2, ...noMarks }, 0);
+      sRsi = chart.addSeries(L.LineSeries, { lineWidth: 2, priceLineVisible: false }, 1);
+      sAdx = chart.addSeries(L.LineSeries, { lineWidth: 2, priceLineVisible: false }, 2);
+      sDip = chart.addSeries(L.LineSeries, { lineWidth: 1, priceLineVisible: false }, 2);
+      sDim = chart.addSeries(L.LineSeries, { lineWidth: 1, priceLineVisible: false }, 2);
+      rsiLines = [70, 30].map(v => sRsi.createPriceLine({
+        price: v, lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "",
+      }));
+      const panes = chart.panes();
+      if (panes.length === 3) {
+        panes[0].setStretchFactor(3.2);
+        panes[1].setStretchFactor(1);
+        panes[2].setStretchFactor(1.2);
+      }
+      chart.subscribeCrosshairMove(p => {
+        const b = p && p.time !== undefined ? barByTime.get(p.time) : null;
+        showOhlc(b || chartBars[chartBars.length - 1]);
+      });
+      applyChartTheme();
+    }
+    function applyChartTheme() {
+      if (!chart) return;
+      const grid = cssVar("--chart-grid"), line = cssVar("--line");
+      chart.applyOptions({
+        layout: {
+          background: { type: "solid", color: cssVar("--panel") },
+          textColor: cssVar("--muted"),
+          fontFamily: "JetBrains Mono, monospace",
+          panes: { separatorColor: line },
+        },
+        grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+        rightPriceScale: { borderColor: line },
+        timeScale: { borderColor: line },
+      });
+      const up = cssVar("--chart-up"), down = cssVar("--chart-down");
+      sCandle.applyOptions({ upColor: up, downColor: down, wickUpColor: up, wickDownColor: down });
+      sEma50.applyOptions({ color: cssVar("--ema50") });
+      sEma200.applyOptions({ color: cssVar("--ema200") });
+      sRsi.applyOptions({ color: cssVar("--rsi") });
+      sAdx.applyOptions({ color: cssVar("--adx") });
+      sDip.applyOptions({ color: up });
+      sDim.applyOptions({ color: down });
+      rsiLines.forEach(l => l.applyOptions({ color: cssVar("--muted") }));
+      posSig = "";  // redraw position lines in the new colours on the next poll
+    }
+    function setChartSymbol(sym) {
+      if (sym === chartSym) return;
+      chartSym = sym;
+      loadChart();
+    }
+    function pfmt(dg) {
+      return { type: "price", precision: dg, minMove: Math.pow(10, -dg) };
+    }
+    function toCandle(b) { return { time: b.time, open: b.open, high: b.high, low: b.low, close: b.close }; }
+    function toLine(b, k) { return b[k] === null || b[k] === undefined ? { time: b.time } : { time: b.time, value: b[k] }; }
+    const LINE_KEYS = [["ema50", () => sEma50], ["ema200", () => sEma200], ["rsi", () => sRsi],
+                       ["adx", () => sAdx], ["di_plus", () => sDip], ["di_minus", () => sDim]];
+
+    async function loadChart() {
+      if (!chart) return;
+      const sym = chartSym;
+      let d;
+      try {
+        const res = await apiFetch(`/api/chart?symbol=${encodeURIComponent(sym)}&bars=300&_=${Date.now()}`, { cache: "no-store" });
+        d = await res.json();
+      } catch (e) { console.error(e); return; }
+      if (sym !== chartSym) return;  // user switched symbol while this request was in flight
+      const bars = (d.bars || []).filter(b => b.time !== null && b.open !== null);
+      document.getElementById("chartSym").textContent = sym + " · M15";
+      if (!bars.length) { chartNote("Waiting for the bot's first tick on " + sym + "…"); return; }
+
+      const dg = d.digits || 2;
+      if (dg !== chartDigits) {
+        chartDigits = dg;
+        [sCandle, sEma50, sEma200].forEach(s => s.applyOptions({ priceFormat: pfmt(dg) }));
+      }
+      if (chartLoadedSym !== sym) {
+        chartLoadedSym = sym;
+        chartBars = bars;
+        barByTime = new Map(bars.map(b => [b.time, b]));
+        sCandle.setData(bars.map(toCandle));
+        for (const [k, s] of LINE_KEYS) s().setData(bars.map(b => toLine(b, k)));
+        chart.timeScale().setVisibleLogicalRange({ from: bars.length - 120, to: bars.length + 4 });
+        posSig = "";
+      } else {
+        const lastTime = chartBars.length ? chartBars[chartBars.length - 1].time : 0;
+        for (const b of bars) {
+          if (b.time < lastTime) continue;
+          sCandle.update(toCandle(b));
+          for (const [k, s] of LINE_KEYS) s().update(toLine(b, k));
+          if (!barByTime.has(b.time)) chartBars.push(b);
+          else chartBars[chartBars.length - 1] = b;
+          barByTime.set(b.time, b);
+        }
+      }
+      drawPositions(d.positions || []);
+      showOhlc(chartBars[chartBars.length - 1]);
+    }
+    function drawPositions(positions) {
+      const sig = JSON.stringify(positions);
+      if (sig === posSig) return;
+      posSig = sig;
+      posLines.forEach(l => sCandle.removePriceLine(l));
+      posLines = [];
+      const L = LightweightCharts;
+      for (const p of positions) {
+        const tag = (p.type || "") + (p.mode ? " " + p.mode : "");
+        if (p.price_open) posLines.push(sCandle.createPriceLine({ price: p.price_open, color: cssVar("--teal-dim"), lineWidth: 2, lineStyle: L.LineStyle.Solid, axisLabelVisible: true, title: tag }));
+        if (p.sl) posLines.push(sCandle.createPriceLine({ price: p.sl, color: cssVar("--chart-down"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "SL" }));
+        if (p.tp) posLines.push(sCandle.createPriceLine({ price: p.tp, color: cssVar("--chart-up"), lineWidth: 1, lineStyle: L.LineStyle.Dashed, axisLabelVisible: true, title: "TP" }));
+      }
+    }
+    function showOhlc(b) {
+      if (!b) return;
+      const dg = chartDigits || 2;
+      const set = (id, v, cls) => { const el = document.getElementById(id); if (el) { el.textContent = v; el.className = cls || ""; } };
+      const dir = b.close >= b.open ? "up" : "down";
+      set("oO", n(b.open, dg)); set("oH", n(b.high, dg)); set("oL", n(b.low, dg)); set("oC", n(b.close, dg), dir);
+      const chg = b.close - b.open, pct = b.open ? (chg / b.open) * 100 : 0;
+      set("oChg", (chg >= 0 ? "+" : "") + n(chg, dg) + " (" + (pct >= 0 ? "+" : "") + n(pct, 2) + "%)", dir);
+      const t = new Date(b.time * 1000).toISOString().slice(0, 16).replace("T", " ");
+      set("oTime", t, "k");
+      set("lgEma50", n(b.ema50, dg)); set("lgEma200", n(b.ema200, dg)); set("lgRsi", n(b.rsi));
+      set("lgAdx", n(b.adx)); set("lgDip", n(b.di_plus)); set("lgDim", n(b.di_minus));
+    }
+    initChart();
+    loadChart();
+    setInterval(loadChart, 2000);
+
     setInterval(refresh, 2000);
     setInterval(() => {
       if (histSummaryMode) { loadTradeSummary(); }

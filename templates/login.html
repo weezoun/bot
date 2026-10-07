@@ -7,6 +7,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("dash-theme"); } catch (e) {}
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
   <style>
     :root {
       --bg: #f3efe6;
@@ -18,6 +28,32 @@
       --teal-dim: #0a5555;
       --red: #b91c1c;
       --shadow: 0 10px 30px rgba(26, 35, 50, 0.06);
+      --teal-hover: #0a5555;
+      --input-bg: #fff;
+      --red-soft: #fef2f2;
+      --red-line: #fecaca;
+      --glow-1: #e7f2f0;
+      --glow-2: #f7e9d8;
+      color-scheme: light;
+    }
+    /* Dark theme, 2026-10-07: follows the dashboard's saved choice. */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0e1318;
+      --ink: #e4e0d8;
+      --muted: #94a3b2;
+      --panel: #161c23;
+      --line: #2a333d;
+      --teal: #0f8a86;
+      --teal-dim: #5fd0c8;
+      --teal-hover: #0c706d;
+      --red: #f47c7c;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      --input-bg: #0e1318;
+      --red-soft: #381818;
+      --red-line: #7a2c2c;
+      --glow-1: #0f2727;
+      --glow-2: #261d12;
     }
     * { box-sizing: border-box; }
     body {
@@ -29,8 +65,8 @@
       font-family: "DM Sans", system-ui, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(1200px 500px at 10% -10%, #e7f2f0 0%, transparent 55%),
-        radial-gradient(900px 400px at 100% 0%, #f7e9d8 0%, transparent 50%),
+        radial-gradient(1200px 500px at 10% -10%, var(--glow-1) 0%, transparent 55%),
+        radial-gradient(900px 400px at 100% 0%, var(--glow-2) 0%, transparent 50%),
         var(--bg);
     }
     .card {
@@ -66,7 +102,7 @@
       padding: 0.65rem 0.75rem;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--input-bg);
       color: var(--ink);
       margin-bottom: 1rem;
     }
@@ -87,11 +123,11 @@
       color: #fff;
       transition: background 0.15s ease, transform 0.15s ease;
     }
-    button:hover { background: var(--teal-dim); }
+    button:hover { background: var(--teal-hover); }
     button:active { transform: scale(0.98); }
     .error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
+      background: var(--red-soft);
+      border: 1px solid var(--red-line);
       color: var(--red);
       border-radius: 10px;
       padding: 0.6rem 0.75rem;

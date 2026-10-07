@@ -149,6 +149,12 @@ class BotState:
         self.digits = 2  # this symbol's real price precision — set from SymbolBot._digits() once known,
         # so the dashboard can format GBPUSD/USDJPY prices correctly instead of a flat 2 decimals
         self.snapshot = {}
+        # Dashboard live chart only (2026-10-07): the latest indicator
+        # DataFrame bot_tick already built (data_preview, forming bar patched
+        # with live mid). Stored by reference, read-only, never used for any
+        # decision. /api/chart serializes it on request, so the chart shows
+        # exactly the values the bot decides on, with no extra MT5 calls.
+        self.chart_data = None
         self.live = {}
         self.last_signal = {}
         self.last_reason = ""
@@ -2056,6 +2062,7 @@ class SymbolBot:
 
         with self.state.lock:
             self.state.snapshot = display
+            self.state.chart_data = data_preview  # dashboard chart only, see BotState
             self.state.live = live
             self.state.last_signal = sig.to_dict()
             self.state.last_reason = sig.reason

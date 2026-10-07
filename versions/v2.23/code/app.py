@@ -142,7 +142,13 @@ def login():
             session["role"] = "admin"
             session.permanent = True
             return redirect(url_for("dashboard"))
-        if username == cfg.DASHBOARD_GUEST_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST_PASSWORD):
+        # Second guest (cfg.DASHBOARD_GUEST2_*) is TEMPORARY, for the user's
+        # teacher during project approval: view-only, cannot start/stop the
+        # bot. See config.py for the reason.
+        if (
+            (username == cfg.DASHBOARD_GUEST_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST_PASSWORD))
+            or (username == cfg.DASHBOARD_GUEST2_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST2_PASSWORD))
+        ):
             session.clear()
             session["user"] = username
             session["role"] = "guest"
@@ -495,6 +501,54 @@ def api_status():
         "symbols": {name: bot.state.snapshot_view() for name, bot in bots.items()},
     }
     return _no_cache(jsonify(payload))
+
+
+@app.route("/api/chart")
+def api_chart():
+    """Live chart data for one symbol (dashboard chart, 2026-10-07).
+    Requested directly: "live indicators aur decision logs k beech may live
+    chart bhi le aao jeise trading view ka ajata hai... indicators bhi
+    placed hon... aur OHLC ki values bhi honi chahiye".
+
+    Serializes the SAME indicator DataFrame bot_tick just used for its own
+    decision (BotState.chart_data, forming M15 bar patched with live mid).
+    The chart therefore never disagrees with the Live indicators panel, and
+    this route makes no MT5 call of its own. ?symbol=XAUUSD&bars=300 (50-1000).
+    """
+    bot = bots.get(request.args.get("symbol", ""))
+    if bot is None:
+        return _no_cache(jsonify({"error": "unknown symbol"})), 404
+    try:
+        bars = max(50, min(1000, int(request.args.get("bars", 300))))
+    except ValueError:
+        bars = 300
+    with bot.state.lock:
+        df = bot.state.chart_data
+        digits = bot.state.digits
+        positions = list(bot.state.positions)
+    if df is None or not len(df):
+        return _no_cache(jsonify({"digits": digits, "bars": [], "positions": []}))
+
+    def f(v):
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        return None if v != v else v  # NaN -> null
+
+    cols = [("time", "time"), ("open", "open"), ("high", "high"), ("low", "low"), ("close", "close"),
+            ("ema50", "50EMA"), ("ema200", "200EMA"), ("rsi", "RSI"), ("adx", "ADX"),
+            ("di_plus", "+DI_14"), ("di_minus", "-DI_14"), ("atr", "ATR")]
+    tail = df.tail(bars)
+    keys = [k for k, _ in cols]
+    out = []
+    for values in tail[[c for _, c in cols]].itertuples(index=False, name=None):
+        rec = {k: f(v) for k, v in zip(keys, values)}
+        rec["time"] = int(rec["time"])
+        out.append(rec)
+    pos = [{"type": p.get("type"), "price_open": f(p.get("price_open")), "sl": f(p.get("sl")),
+            "tp": f(p.get("tp")), "mode": p.get("mode")} for p in positions]
+    return _no_cache(jsonify({"digits": digits, "bars": out, "positions": pos}))
 
 
 @app.route("/api/trades")

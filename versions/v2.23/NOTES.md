@@ -84,6 +84,16 @@ The symbol isolation boundary was strictly maintained with zero cross-contaminat
 - Verified that all imports (`MetaTrader5`, `flask`, `pandas`, `numpy`, `msvcrt`) succeed on the Windows runtime.
 - Bot remains stopped per explicit user instruction (*"stop rehne do abhi is ko run nahi karo"*).
 
+### 6. Dashboard: light/dark mode + live chart (2026-10-07, UI only, no rule/strategy change)
+
+REASON (user's own words): *"dark mode aur light mode add ker do"* and *"live indicators aur decision logs k beech may live chart bhi le aao jeise trading view ka ajata hai... jo bhi symbol select karon us ka live chart neeche ajaye aur ager yeh indicators bhi placed hon to kia hi baat hai. aur OHLC ki values bhi honi chahiye"*.
+
+- **Theme**: every dashboard colour is now a CSS token. There is a dark palette under `:root[data-theme="dark"]` and a header toggle button. The choice is remembered per browser (`localStorage`, key `dash-theme`) and defaults to the OS setting. The login page follows the same saved choice.
+- **Live chart** (between Live indicators and Decision log): TradingView's open-source Lightweight Charts v5.2.1 from unpkg. There are three panes: M15 candles + EMA 50/200 (plus entry/SL/TP lines for open positions), RSI with 70/30 lines, and ADX/+DI/-DI. An OHLC + change + indicator-value legend shows the latest bar and follows the crosshair on hover. The chart follows the symbol tab selected in Live indicators and polls every 2s.
+- **Data**: new `/api/chart?symbol=&bars=` route. It serializes `BotState.chart_data`, a reference to the same `data_preview` DataFrame `bot_tick` already builds for its own decision (forming bar patched with live mid). The chart therefore always matches the Live indicators panel, and the route makes no MT5 call of its own. `bot_runner.py`'s only change is that one assignment. No decision logic was touched.
+- IMPACT: the dashboard needs internet access to unpkg for the chart library. If it can't load, the chart panel shows a note and the rest of the dashboard works normally. Times on the chart are broker server time, same as MT5.
+- Verified: `py_compile` clean, inline JS passes `node --check`, `/api/chart` returns real data on the running bot (XAUUSD 2 digits, GBPUSD 5 digits, 300 bars), and headless-Edge screenshots of both themes render the chart correctly.
+
 ## Verification
 
 - **Standalone tests verified**:

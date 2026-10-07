@@ -136,18 +136,19 @@ def login():
         password = request.form.get("password", "")
         # hmac.compare_digest for the password specifically — constant-time,
         # avoids leaking password length/prefix via response timing.
-        # Second admin (cfg.DASHBOARD_ADMIN2_*) is TEMPORARY, for the user's
-        # teacher during project approval. See config.py for the reason.
-        if (
-            (username == cfg.DASHBOARD_ADMIN_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN_PASSWORD))
-            or (username == cfg.DASHBOARD_ADMIN2_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN2_PASSWORD))
-        ):
+        if username == cfg.DASHBOARD_ADMIN_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN_PASSWORD):
             session.clear()
             session["user"] = username
             session["role"] = "admin"
             session.permanent = True
             return redirect(url_for("dashboard"))
-        if username == cfg.DASHBOARD_GUEST_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST_PASSWORD):
+        # Second guest (cfg.DASHBOARD_GUEST2_*) is TEMPORARY, for the user's
+        # teacher during project approval: view-only, cannot start/stop the
+        # bot. See config.py for the reason.
+        if (
+            (username == cfg.DASHBOARD_GUEST_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST_PASSWORD))
+            or (username == cfg.DASHBOARD_GUEST2_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_GUEST2_PASSWORD))
+        ):
             session.clear()
             session["user"] = username
             session["role"] = "guest"

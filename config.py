@@ -60,16 +60,19 @@ FLASK_HOST = "0.0.0.0"
 # header before — same behavior, different mechanism).
 DASHBOARD_ADMIN_USERNAME = "weezoun"
 DASHBOARD_ADMIN_PASSWORD = "Prison3R!"
-# Second admin, added 2026-10-07. REASON (user's own words): "admin name
-# uzair aur pasword uzair... yeh mere teacher ka id hai mere project k
-# liye project approve ho jaye ga to remove kerdon ga". TEMPORARY: it has
-# the same full access as "weezoun" (view + start/stop + Rules section).
-# Remove both lines, and the matching check in app.py login(), once the
-# project is approved.
-DASHBOARD_ADMIN2_USERNAME = "uzair"
-DASHBOARD_ADMIN2_PASSWORD = "uzair"
 DASHBOARD_GUEST_USERNAME = "guest"
 DASHBOARD_GUEST_PASSWORD = "effortless"
+# Second guest, added 2026-10-07 for the user's teacher. REASON (user's own
+# words): "uzair aur pasword uzair... yeh mere teacher ka id hai mere
+# project k liye project approve ho jaye ga to remove kerdon ga".
+# First added as an admin, then changed to guest the same day: "uzair ko
+# admin nahi guest user bana do takey bot ko band nahi ker sake".
+# IMPACT: view-only, same as "guest". before_request blocks /api/start and
+# /api/stop, and the Rules sections are hidden. TEMPORARY: remove both
+# lines, and the matching check in app.py login(), once the project is
+# approved.
+DASHBOARD_GUEST2_USERNAME = "uzair"
+DASHBOARD_GUEST2_PASSWORD = "uzair"
 # "Session ko expire karo" — requested directly, chose 30 minutes of
 # INACTIVITY (not a fixed 30 minutes from login): Flask's
 # SESSION_REFRESH_EACH_REQUEST (default True) re-issues the cookie's

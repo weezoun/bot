@@ -977,15 +977,37 @@ class SymbolBot:
         path and naturally reuses Rule 6's own, proven one, same as
         indices' precedent."""
         opposite = 'SELL' if closed_side == 'BUY' else 'BUY'
-        sl_time = time.time() if profit < 0 else None
+        # RULE7_PROFIT_SKIPS_COOLDOWN / RULE7_SCALP_SIDE_REARM, 2026-10-07
+        # (v2.23) — both default True (the 2026-09-03/04 corrections
+        # above, kept unchanged on GBPUSD/USDJPY); False on XAUUSD only,
+        # reverting Gold to its exact v2.21 Rule 7 ("current version aur
+        # commit may ki gaye tamam changes reverse kerni hein lekin sirf
+        # XAUUSD (gold) k liye ... kuch bhi reversal se reh na jaye"):
+        # cooldown floor on EVERY scalp SL (profit or loss), and no
+        # scalp-side re-arm via Rule 6's gate — Gold's scalp side re-arms
+        # only via the DI-regime flip again (REGIME_FLIP_FORCE_REARM=True
+        # on Gold). See config.py's own comment on these flags for IMPACT.
+        if self.cfg.RULE7_PROFIT_SKIPS_COOLDOWN:
+            sl_time = time.time() if profit < 0 else None
+        else:
+            sl_time = time.time()
         self.state.rule7_reversal_gate = {
             'side': opposite,
             'benchmark': _relevant_di(opposite, live_snap),
             'sl_time': sl_time,
         }
-        self.state.scalp_continuation_gate = {'side': closed_side, 'bar_time': live_snap.bar_time}
         label = '-DI' if opposite == 'SELL' else '+DI'
         candle_word = 'green' if opposite == 'BUY' else 'red'
+        if not self.cfg.RULE7_SCALP_SIDE_REARM:
+            # v2.21's own log line, verbatim
+            self.state.log(
+                f"Rule 7 (XAUUSD): Scalp SL ({closed_side}) — no immediate reversal. "
+                f"{opposite}-side blocked {cfg.RULE4_MIN_COOLDOWN_SECONDS:.0f}s minimum, THEN "
+                f"EITHER {label} crossing {self.state.rule7_reversal_gate['benchmark']:.1f} (benchmark) OR "
+                f"rolling {label} rising + forming candle definitely {candle_word}"
+            )
+            return
+        self.state.scalp_continuation_gate = {'side': closed_side, 'bar_time': live_snap.bar_time}
         orig_label = '-DI' if closed_side == 'SELL' else '+DI'
         orig_candle_word = 'green' if closed_side == 'BUY' else 'red'
         rearm_note = (

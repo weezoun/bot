@@ -1,7 +1,7 @@
 # MT5 / bot settings — edit here only (not in the UI)
 
 # MT5_LOGIN = 198433334
-MT5_LOGIN = 49825877
+MT5_LOGIN = 49867955
 MT5_PASSWORD = "Prison3R!"
 # MT5_SERVER = "HFMarketsGlobal-Live16"
 MT5_SERVER = "HFMarketsGlobal-Demo"
@@ -61,7 +61,7 @@ FLASK_HOST = "0.0.0.0"
 DASHBOARD_ADMIN_USERNAME = "weezoun"
 DASHBOARD_ADMIN_PASSWORD = "Prison3R!"
 DASHBOARD_GUEST_USERNAME = "guest"
-DASHBOARD_GUEST_PASSWORD = "14august"
+DASHBOARD_GUEST_PASSWORD = "effortless"
 # "Session ko expire karo" — requested directly, chose 30 minutes of
 # INACTIVITY (not a fixed 30 minutes from login): Flask's
 # SESSION_REFRESH_EACH_REQUEST (default True) re-issues the cookie's
@@ -133,6 +133,8 @@ class SymbolConfig:
         atr_check_enabled=True,
         condition_check_enabled=True,
         regime_flip_force_rearm=True,
+        rule7_profit_skips_cooldown=True,
+        rule7_scalp_side_rearm=True,
     ):
         self.SYMBOL = symbol
         self.LOT = lot
@@ -475,6 +477,32 @@ class SymbolConfig:
         # TREND_SL_REVERSAL_ENABLED is already False on both currency
         # pairs now (see that flag's own comment).
         self.REGIME_FLIP_FORCE_REARM = regime_flip_force_rearm
+        # RULE7_PROFIT_SKIPS_COOLDOWN / RULE7_SCALP_SIDE_REARM, 2026-10-07
+        # (v2.23) — only read by bot_runner._gate_scalp_reversal (i.e.
+        # only on SCALP_SL_REVERSAL_COOLDOWN symbols). They wrap the two
+        # v2.22 Rule 7 changes that were NOT behind any flag:
+        #   - RULE7_PROFIT_SKIPS_COOLDOWN (2026-09-03): a profit-closed
+        #     scalp SL skips the RULE4_MIN_COOLDOWN_SECONDS floor, Rule 4's
+        #     own pattern. False = v2.21: floor applies on every scalp SL.
+        #   - RULE7_SCALP_SIDE_REARM (2026-09-04): scalp SL also sets
+        #     Rule 6's own `scalp_continuation_gate`, giving the scalp's
+        #     own side a confirmation-gated re-arm path. False = v2.21: no
+        #     such path, scalp side re-arms only via the DI-regime flip.
+        # Default True = current behavior, unchanged (GBPUSD/USDJPY).
+        # False on XAUUSD only. REASON (user's own words): "current
+        # version aur commit may ki gaye tamam changes reverse kerni hein
+        # lekin sirf XAUUSD (gold) k liye baqi sub ko intact rehne do" /
+        # "sirf gold k rules ko reverse kia hai... kuch hi reversal se reh
+        # na jaye" — completes Gold's revert of v2.22. Later the same day
+        # v2.21 was reverted on Gold too (SCALP_SL_REVERSAL_COOLDOWN=False),
+        # so these two flags are moot on Gold for now; see the XAUUSD block.
+        # IMPACT on Gold: after a profit-closed scalp SL the reversal side
+        # waits the full cooldown again; and the 2026-09-04 bug comes back
+        # deliberately — scalp side can stay disarmed ("already scalped
+        # this DI regime") until the next DI-regime flip, which can take a
+        # long time. Set RULE7_SCALP_SIDE_REARM=True on XAUUSD to undo.
+        self.RULE7_PROFIT_SKIPS_COOLDOWN = rule7_profit_skips_cooldown
+        self.RULE7_SCALP_SIDE_REARM = rule7_scalp_side_rearm
 
 
 # USA500: TP capped at fixed points rather than an ATR multiple — a 3x-ATR
@@ -674,18 +702,47 @@ XAUUSD = SymbolConfig(  # mean M15 ATR ~8.1 (near-identical to USA500 currently)
     # indices where the loss-triggered case is net-positive). XAUUSD named
     # explicitly by the user, so this is exempt from the standing
     # 2026-08-29 freeze on unnamed changes.
-    scalp_sl_reversal_cooldown=True,
-    # ATR_CHECK_ENABLED, 2026-09-03 — see SymbolConfig's own comment for
-    # the full REASON/IMPACT/history. XAUUSD explicitly named by the user
-    # ("xauusd per bhi apply karo"), exempting this specific change from
-    # the standing 2026-08-29 freeze (which only skips unnamed changes) —
-    # removes ATR from Rule 3/5/6 alike, same as the other 5 symbols.
-    atr_check_enabled=False,
-    # REGIME_FLIP_FORCE_REARM, 2026-09-04 — see SymbolConfig's own comment
-    # for the full REASON/IMPACT. Indices explicitly excluded (kept as-is,
-    # "indices ko chhor do") — Gold and currency pairs get the new,
-    # confirmation-only behavior.
-    regime_flip_force_rearm=False,
+    #
+    # REVERTED to False, 2026-10-07 (v2.23) — v2.21 itself reverted for
+    # Gold, on top of v2.22. User's own words: "gold ko jis din alag kia
+    # tha woh bhi actually us k profit may hone ka saboot tha... us k baad
+    # dekhte hein gold may kia kia changes ki hein ager us k baad v 2.21
+    # aur 2.22 they to un dono ko hi reverse kerna hoga." Gold was frozen
+    # on 2026-08-29 (v2.18) while net +11,084 for that week; v2.21 and
+    # v2.22 were the only Gold changes made after that freeze. With this
+    # False, Gold's scalp SL goes back to the classic immediate
+    # `_reverse_scalp()` (capped once per DI regime), exactly as in
+    # v2.18-v2.20; `rule7_reversal_gate` is never set on Gold, so every
+    # read of it is a no-op here.
+    # IMPACT: the v2.20 data that motivated v2.21 comes back with it —
+    # immediate reversals were net-negative for Gold (loss-triggered 12x,
+    # 8% win, -1,689 on the reversal leg; profit-triggered -234). The user
+    # accepted this explicitly, because the frozen whole-system state was
+    # profitable overall. The RULE7_* flags below are moot on Gold while
+    # this is False; they stay False so that flipping this back to True
+    # restores v2.21's exact Rule 7.
+    scalp_sl_reversal_cooldown=False,
+    # ATR_CHECK_ENABLED restored to True, 2026-10-07 (REVERTED v2.22 for XAUUSD):
+    # User instruction: "current version aur commit may ki gaye tamam changes
+    # reverse kerni hein lekin sirf XAUUSD (gold) k liye baqi sub ko intact
+    # rehne do". Restores the required ATR noise filter (snap.atr_strong)
+    # on Rule 5 (scalp entry) and Rule 6/Rule 3 continuation gates for Gold.
+    atr_check_enabled=True,
+    # CONDITION_CHECK_ENABLED set to False, 2026-10-07 (REVERTED v2.22 for XAUUSD):
+    # Market condition != 'RANGING' block removed from Gold. Reverts back
+    # to original pre-v2.22 behavior where condition (NORMAL/RANGING/VOLATILE)
+    # did not block Gold trades or gates across Rules 2/3/4/5/6/7.
+    condition_check_enabled=False,
+    # REGIME_FLIP_FORCE_REARM restored to True, 2026-10-07 (REVERTED commit e585281 for XAUUSD):
+    # Restores DI-regime flip shortcut for Gold: when DI regime changes,
+    # scalp_armed is re-armed and gates cleared, exactly as original design.
+    regime_flip_force_rearm=True,
+    # RULE7_PROFIT_SKIPS_COOLDOWN / RULE7_SCALP_SIDE_REARM set False,
+    # 2026-10-07 (REVERTED v2.22 for XAUUSD) — the two Rule 7 changes of
+    # v2.22 that had no flag; see SymbolConfig's own comment. Gold's Rule
+    # 7 is now exactly v2.21: cooldown on every scalp SL, no Rule 6 re-arm.
+    rule7_profit_skips_cooldown=False,
+    rule7_scalp_side_rearm=False,
 )
 
 GBPUSD = SymbolConfig(  # mean M15 ATR ~0.00048 currently (re-checked 2026-08-11)

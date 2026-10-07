@@ -69,6 +69,14 @@ aimed at bringing the currently loss-making symbols to profit, and
 doesn't want that testing to have any chance of perturbing XAUUSD's
 already-working setup.
 
+**2026-10-07 (v2.23): XAUUSD restored to this frozen state.** Gold was
+later changed twice despite the freeze: v2.21 (Rule 7 redesign) and
+v2.22 (ATR removal, condition check, etc.), both explicitly user-named.
+The user reports Gold went badly into loss after the ATR removal, so
+BOTH were reverted on Gold only, via per-symbol flags, leaving Gold's
+rule behavior equal to v2.18-v2.20. Treat that frozen state as Gold's
+known-good baseline.
+
 ## Standing process for every rule/value change
 
 1. Applies equally to all 6 symbols unless the user scopes it to specific
@@ -95,7 +103,8 @@ already-working setup.
    few hundred trades total, an ML model risks overfitting to noise and
    erodes this bot's fully-explainable-by-name design).
 5. **This entire project, `c:\bot`, is the DEMO bot** (`MT5_SERVER =
-   "HFMarketsGlobal-Demo"`, account 49825877) — restarting it, modifying
+   "HFMarketsGlobal-Demo"`, account 49867955 — was 49825877 until that
+   demo account expired, changed 2026-10-07, v2.23) — restarting it, modifying
    its code, and (per the standing exception below) restarting its own
    `pythonw.exe` process after a deployed change are all normal, expected
    parts of working here.

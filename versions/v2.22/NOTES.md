@@ -175,4 +175,4 @@ watchdog cycle — no action taken on it per the standing scope boundary).
 
 ## Next version
 
-(none yet)
+[v2.23](../v2.23/NOTES.md)

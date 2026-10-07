@@ -117,11 +117,14 @@ other gate in this project):
   project with literally no other confirmation of any kind, so this
   check matters most here.
 
-Default `True`, applied uniformly — no per-symbol exception this round
-(unlike `ATR_CHECK_ENABLED`, no symbol sets this flag to `False`
-anywhere in `config.py`). Verified with a standalone test covering all
-six call sites: RANGING blocks each one, NORMAL and VOLATILE both allow
-each one, no MT5 connection made.
+Default `True`, applied to the other 5 symbols (USA500, USA100, USA30,
+GBPUSD, USDJPY). **REVERTED FOR XAUUSD, 2026-10-07**: Per user instruction
+(*"current version aur commit may ki gaye tamam changes reverse kerni hein
+lekin sirf XAUUSD (gold) k liye baqi sub ko intact rehne do"*),
+`cfg.CONDITION_CHECK_ENABLED` is set `False` for XAUUSD (`config.XAUUSD`),
+restoring its original pre-v2.22 behavior without RANGING market blocking.
+Verified with a standalone test covering all call sites: RANGING blocks each
+non-Gold symbol, while XAUUSD allows normal execution.
 
 **Rule 3 — WITH_TREND TP hit** (2026-08-12): existing gate mechanism
 confirmed correct as-is, plus one new check — the CURRENTLY FORMING
@@ -619,7 +622,8 @@ LOSS-closed scalp SL on these three is completely unaffected — still the
 original immediate reversal above. `False` (default, no effect) for
 XAUUSD and GBPUSD/USDJPY.
 
-**Rule 7 variant, XAUUSD only — scalp SL replaced with a Rule-4-shaped
+**Rule 7 variant, XAUUSD 2026-09-02 → 2026-10-07 (reverted on Gold in
+v2.23, see the end of this section), GBPUSD/USDJPY since 2026-09-03 — scalp SL replaced with a Rule-4-shaped
 gate (`cfg.SCALP_SL_REVERSAL_COOLDOWN`, 2026-09-02).** Real data showed
 an immediate reversal net-negative for Gold on BOTH outcomes: loss-
 triggered — 12 immediate pairs, only 8% reversal win rate, -1,689.00 net
@@ -716,6 +720,40 @@ unconfirmed setup correctly leaves scalp disarmed (real confirmation
 still required, not a rubber stamp), a strong/confirmed setup clears the
 gate and re-arms `scalp_armed`, exactly like Rule 6's own TP outcome.
 
+**REVERTED FOR XAUUSD, 2026-10-07 (v2.23) — both 2026-09-03/04 Rule 7
+corrections above.** Neither had a flag, so they were still live on Gold
+after the ATR/condition/regime-flip revert. Two new per-symbol flags,
+read ONLY in `_gate_scalp_reversal`, both default `True` (current
+behavior, kept on GBPUSD/USDJPY), `False` on XAUUSD:
+`RULE7_PROFIT_SKIPS_COOLDOWN` (False → `sl_time = time.time()` on every
+scalp SL, profit or loss, as in v2.21) and `RULE7_SCALP_SIDE_REARM`
+(False → no `scalp_continuation_gate` set, v2.21's own log line).
+REASON (user's own words): *"current version aur commit may ki gaye
+tamam changes reverse kerni hein lekin sirf XAUUSD (gold) k liye baqi
+sub ko intact rehne do"* / *"sirf gold k rules ko reverse kia hai... kuch
+hi reversal se reh na jaye."* IMPACT on Gold: the reversal side waits the
+full cooldown after a profit-closed scalp SL too; and the 2026-09-04 gap
+returns deliberately — Gold's scalp side re-arms only on a DI-regime
+flip (`REGIME_FLIP_FORCE_REARM=True` on Gold), so "already scalped this
+DI regime" can persist until the next flip. Verified with a standalone
+test: XAUUSD profit/loss SL both set the cooldown and no Rule 6 gate;
+GBPUSD/USDJPY unchanged (profit = no cooldown, Rule 6 gate set).
+
+**XAUUSD taken OFF this whole gated variant, 2026-10-07 (v2.23) — v2.21
+itself reverted on Gold (`config.XAUUSD.scalp_sl_reversal_cooldown =
+False`).** Gold was frozen on 2026-08-29 (v2.18) while net +11,084 for
+that week, and v2.21 and v2.22 were the only Gold changes after that.
+User: *"gold ko jis din alag kia tha woh bhi actually us k profit may
+hone ka saboot tha... ager us k baad v 2.21 aur 2.22 they to un dono ko
+hi reverse kerna hoga."* A scalp SL on Gold now triggers the classic
+immediate `_reverse_scalp()` described at the top of this rule again
+(capped once per DI regime), exactly as in v2.18-v2.20, and
+`rule7_reversal_gate` is never set on Gold. The `RULE7_*` flags above
+are moot on Gold while this flag is False. Accepted trade-off: that
+immediate reversal was net-negative for Gold in the v2.20 data (see the
+figures at the start of this variant). This gated variant now applies
+to **GBPUSD/USDJPY only**.
+
 **Regime-flip shortcut removed, 2026-09-04 — XAUUSD/GBPUSD/USDJPY only
 (`cfg.REGIME_FLIP_FORCE_REARM`).** Investigating a live "already scalped
 this DI regime" case that persisted on Gold even after `condition` had
@@ -736,11 +774,12 @@ check karo, to ab yeh 'already entered in DI regime' wala useless hai,
 yeh nahi chahiye, na with_trend mein na hi scalp mein."*
 
 New `cfg.REGIME_FLIP_FORCE_REARM` flag, default `True` (preserves the
-original behavior — indices, and the fallback for any untouched symbol),
-`False` on XAUUSD/GBPUSD/USDJPY. When `False`, a DI-regime flip no
-longer touches `scalp_armed`/`scalp_continuation_gate`/
-`rule7_reversal_gate` at all — those three now clear ONLY via their own
-real, dedicated clearing functions, regardless of DI regime. Deliberately
+original behavior — indices, and fallback). Set `False` on GBPUSD/USDJPY.
+**REVERTED FOR XAUUSD, 2026-10-07**: Per user instruction, Gold is restored
+to `regime_flip_force_rearm = True` (reverting the commit e585281 change for
+XAUUSD only). When `False` (GBPUSD/USDJPY), a DI-regime flip no longer
+touches `scalp_armed`/`scalp_continuation_gate`/`rule7_reversal_gate` at all;
+on XAUUSD and Indices (`True`), the original regime flip shortcut remains active. Deliberately
 NOT touched (unconditional on every symbol): `scalp_reversal_used`/
 `scalp_rearm_gate`/`scalp_reversal_di`/`scalp_no_reversal_gate` resets —
 all tied to indices' own classic `_reverse_scalp()` mechanism, left
@@ -959,11 +998,14 @@ not yet named. Two follow-ups, same session:
    never has — the request's premise ("with_trend has no ATR check
    anywhere") wasn't fully accurate for Rule 3 specifically. Flagged to
    the user, who confirmed: *"rule 3 se bhi remove karo."*
-2. **XAUUSD included** — user separately named it explicitly: *"xauusd
-   per bhi apply karo"* — exempting this specific change from the
-   standing 2026-08-29 freeze (which only skips changes the user does
-   NOT name). XAUUSD's own `atr_check_enabled=False` set directly in its
-   config block, same as the other 5.
+2. **XAUUSD included briefly, then REVERTED (2026-10-07)**: user had named it
+   explicitly on 2026-09-03 (*"xauusd per bhi apply karo"*), but then
+   requested full reversal of v2.22 changes for Gold on 2026-10-07 (*"current
+   version aur commit may ki gaye tamam changes reverse kerni hein lekin sirf
+   XAUUSD (gold) k liye baqi sub ko intact rehne do"*). `atr_check_enabled=True`
+   is restored on XAUUSD, re-enforcing the `snap.atr_strong` requirement for
+   Rule 5 scalp entry and Rule 6/Rule 3 gates on Gold. The other 5 symbols
+   remain `atr_check_enabled=False`.
 
 Flag renamed accordingly (`SCALP_ATR_CHECK_ENABLED` → `ATR_CHECK_ENABLED`
 — dropped "SCALP", would be misleading now that a WITH_TREND rule reads

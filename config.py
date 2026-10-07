@@ -60,6 +60,14 @@ FLASK_HOST = "0.0.0.0"
 # header before — same behavior, different mechanism).
 DASHBOARD_ADMIN_USERNAME = "weezoun"
 DASHBOARD_ADMIN_PASSWORD = "Prison3R!"
+# Second admin, added 2026-10-07. REASON (user's own words): "admin name
+# uzair aur pasword uzair... yeh mere teacher ka id hai mere project k
+# liye project approve ho jaye ga to remove kerdon ga". TEMPORARY: it has
+# the same full access as "weezoun" (view + start/stop + Rules section).
+# Remove both lines, and the matching check in app.py login(), once the
+# project is approved.
+DASHBOARD_ADMIN2_USERNAME = "uzair"
+DASHBOARD_ADMIN2_PASSWORD = "uzair"
 DASHBOARD_GUEST_USERNAME = "guest"
 DASHBOARD_GUEST_PASSWORD = "effortless"
 # "Session ko expire karo" — requested directly, chose 30 minutes of

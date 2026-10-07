@@ -136,7 +136,12 @@ def login():
         password = request.form.get("password", "")
         # hmac.compare_digest for the password specifically — constant-time,
         # avoids leaking password length/prefix via response timing.
-        if username == cfg.DASHBOARD_ADMIN_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN_PASSWORD):
+        # Second admin (cfg.DASHBOARD_ADMIN2_*) is TEMPORARY, for the user's
+        # teacher during project approval. See config.py for the reason.
+        if (
+            (username == cfg.DASHBOARD_ADMIN_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN_PASSWORD))
+            or (username == cfg.DASHBOARD_ADMIN2_USERNAME and hmac.compare_digest(password, cfg.DASHBOARD_ADMIN2_PASSWORD))
+        ):
             session.clear()
             session["user"] = username
             session["role"] = "admin"
